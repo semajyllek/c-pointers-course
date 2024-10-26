@@ -17,11 +17,11 @@
             <h2>What is Pointer Arithmetic?</h2>
             <p>Pointer arithmetic allows programmers to perform arithmetic operations on addresses. It can simplify tasks like iterating through arrays.</p>
             <h3>Basic Operations:</h3>
-            <ul> 
-                <li><strong>Increment (++)</strong>: Moves the pointer to the next element of the type it points to, increasing its address by the size of the data type to which the pointer points. For example, p++ moves p by sizeof(int) bytes if p is an int pointer.</li>
+            <ul>
+                <li><strong>Increment (++)</strong>: Moves the pointer to the next element of the type it points to.</li>
                 <li><strong>Decrement (--)</strong>: Moves the pointer to the previous element of the type it points to.</li>
-                <li><strong>Addition (+)</strong>: Adds an integer to the pointer, moving it forward by that many elements.</li>
-                <li><strong>Subtraction (-)</strong>: Subtracts an integer from the pointer, moving it backward by that many elements.</li>
+                <li><strong>Addition (+)</strong>: Adds an integer to the pointer, moving it forward in the array.</li>
+                <li><strong>Subtraction (-)</strong>: Subtracts an integer from the pointer, moving it backward in the array.</li>
             </ul>
             <h3>Example:</h3>
             <pre><code>
@@ -45,31 +45,41 @@ int main() {
             <h2>Quiz: Pointer Arithmetic</h2>
             <div id="quiz">
                 <p>1. What does incrementing a pointer do?</p>
-                <input type="radio" name="q1" value="Moves to next element"> Moves to next element<br>
-                <input type="radio" name="q1" value="Moves to previous element"> Moves to previous element<br>
-                <input type="radio" name="q1" value="Resets to start"> Resets to start<br>
+                <label for="q1">
+                    <input type="radio" name="q1" value="Moves to next element"> Moves to next element<br>
+                    <input type="radio" name="q1" value="Moves to previous element"> Moves to previous element<br>
+                    <input type="radio" name="q1" value="Resets to start"> Resets to start<br>
+                </label>
 
                 <p>2. If <code>p</code> is a pointer to int and you do <code>p + 1</code>, what happens?</p>
-                <input type="radio" name="q2" value="Moves to the address of the next int element"> Moves to the address of the next int element<br>
-                <input type="radio" name="q2" value="Moves to next byte"> Moves to the next byte<br>
-                <input type="radio" name="q2" value="No change"> No change<br>
+                <label for="q2">
+                    <input type="radio" name="q2" value="Moves to next int"> Moves to next int<br>
+                    <input type="radio" name="q2" value="Moves to next byte"> Moves to next byte<br>
+                    <input type="radio" name="q2" value="No change"> No change<br>
+                </label>
 
                 <p>3. What does <code>p - 1</code> do to a pointer variable <code>p</code>?</p>
-                <input type="radio" name="q3" value="Moves to previous element"> Moves to previous element<br>
-                <input type="radio" name="q3" value="Moves to next element"> Moves to next element<br>
-                <input type="radio" name="q3" value="Nullifies pointer"> Nullifies pointer<br>
+                <label for="q3">
+                    <input type="radio" name="q3" value="Moves to previous element"> Moves to previous element<br>
+                    <input type="radio" name="q3" value="Moves to next element"> Moves to next element<br>
+                    <input type="radio" name="q3" value="Nullifies pointer"> Nullifies pointer<br>
+                </label>
 
                 <p>4. Can you add two pointers together?</p>
-                <input type="radio" name="q4" value="Yes"> Yes<br>
-                <input type="radio" name="q4" value="No"> No<br>
+                <label for="q4">
+                    <input type="radio" name="q4" value="Yes"> Yes<br>
+                    <input type="radio" name="q4" value="No"> No<br>
+                    <input type="radio" name="q4" value="Only if they are in the same array"> Only if they are in the same array<br>
+                </label>
 
-                
                 <p>5. What happens when you subtract two pointers that point to the same array?</p>
-                <input type="radio" name="q5" value="Gives the index difference"> Gives the index difference<br>
-                <input type="radio" name="q5" value="Gives the memory difference"> Gives the memory difference<br>
-                <input type="radio" name="q5" value="Undefined behavior"> Undefined behavior<br>
+                <label for="q5">
+                    <input type="radio" name="q5" value="Gives the index difference"> Gives the index difference<br>
+                    <input type="radio" name="q5" value="Gives the memory difference"> Gives the memory difference<br>
+                    <input type="radio" name="q5" value="Undefined behavior"> Undefined behavior<br>
+                </label>
 
-                <button onclick="checkAnswers()">Submit Quiz</button>
+                <button onclick="checkArithmeticAnswers()">Submit Quiz</button>
                 <div id="result"></div>
             </div>
         </section>
