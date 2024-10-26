@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pointers and Arrays</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Pointers and Arrays in C</h1>
+        <a href="index.html">Back to Home</a>
+        <a href="introduction.html">Introduction</a>
+        <a href="pointer-arithmetic.html">Pointer Arithmetic</a>
+    </header>
+    <main>
+        <section>
+            <h2>Understanding Arrays and Pointers</h2>
+            <p>In C, an array is a collection of elements of the same type stored in contiguous memory locations. Pointers can be used to point to the first element of an array.</p>
+            <h3>Example of Array and Pointer Usage:</h3>
+            <pre><code>
+#include <stdio.h>
+
+int main() {
+    int arr[5] = {10, 20, 30, 40, 50};
+    int *p = arr; // Pointer to the first element of the array
+
+    for (int i = 0; i < 5; i++) {
+        printf("Value at arr[%d] = %d\n", i, *(p + i)); // Accessing array using pointer
+    }
+    return 0;
+}
+            </code></pre>
+        </section>
+
+        <section>
+            <h2>Quiz: Pointers and Arrays</h2>
+            <div id="quiz">
+                <p>1. How do you access an array element using a pointer?</p>
+                <label for="q1">
+                    <input type="radio" name="q1" value="Using index notation"> Using index notation<br>
+                    <input type="radio" name="q1" value="Pointer arithmetic"> Pointer arithmetic<br>
+                    <input type="radio" name="q1" value="Both"> Both<br>
+                </label>
+
+                <p>2. What does the following code do: <code>p = &arr[0];</code>?</p>
+                <label for="q2">
+                    <input type="radio" name="q2" value="Points to the first element"> Points to the first element<br>
+                    <input type="radio" name="q2" value="Points to the last element"> Points to the last element<br>
+                    <input type="radio" name="q2" value="Points to the size of the array"> Points to the size of the array<br>
+                </label>
+
+                <p>3. What type is the expression <code>sizeof(arr)</code> where <code>arr</code> is an array?</p>
+                <label for="q3">
+                    <input type="radio" name="q3" value="Size of the whole array"> Size of the whole array<br>
+                    <input type="radio" name="q3" value="Size of the first element"> Size of the first element<br>
+                    <input type="radio" name="q3" value="Size of a pointer"> Size of a pointer<br>
+                </label>
+
+                <p>4. When passing an array to a function, what is actually passed?</p>
+                <label for="q4">
+                    <input type="radio" name="q4" value="Entire array"> Entire array<br>
+                    <input type="radio" name="q4" value="Pointer to the first element"> Pointer to the first element<br>
+                    <input type="radio" name="q4" value="The length of the array"> The length of the array<br>
+                </label>
+
+				<p>5. Which of the following statement is correct?</p>
+                <label for="q5">
+                    <input type="radio" name="q5" value="Array name is a pointer"> Array name is a pointer<br>
+                    <input type="radio" name="q5" value="Pointer arithmetic can be used with arrays"> Pointer arithmetic can be used with arrays<br>
+                    <input type="radio" name="q5" value="Both"> Both<br>
+                </label>
+
+                <button onclick="checkArrayAnswers()">Submit Quiz</button>
+                <div id="result"></div>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 Pointers Course</p>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>
