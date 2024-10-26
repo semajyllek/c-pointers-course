@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pointer Arithmetic</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Pointer Arithmetic in C</h1>
+        <a href="index.html">Back to Home</a>
+        <a href="introduction.html">Introduction</a>
+    </header>
+    <main>
+        <section>
+            <h2>What is Pointer Arithmetic?</h2>
+            <p>Pointer arithmetic allows programmers to perform arithmetic operations on addresses. It can simplify tasks like iterating through arrays.</p>
+            <h3>Basic Operations:</h3>
+            <ul>
+                <li><strong>Increment (++)</strong>: Moves the pointer to the next element of the type it points to.</li>
+                <li><strong>Decrement (--)</strong>: Moves the pointer to the previous element of the type it points to.</li>
+                <li><strong>Addition (+)</strong>: Adds an integer to the pointer, moving it forward in the array.</li>
+                <li><strong>Subtraction (-)</strong>: Subtracts an integer from the pointer, moving it backward in the array.</li>
+            </ul>
+            <h3>Example:</h3>
+            <pre><code>
+#include <stdio.h>
+
+int main() {
+    int arr[] = {10, 20, 30, 40, 50};
+    int *p = arr; // Pointer to the first element of the array
+
+    for (int i = 0; i < 5; i++) {
+        printf("Value: %d, Address: %p\n", *p, (void*)p);
+        p++; // Move to the next integer
+    }
+    return 0;
+}
+            </code></pre>
+            <p>In the example above, we increment the pointer <code>p</code> to access each element in the array <code>arr</code>.</p>
+        </section>
+
+        <section>
+            <h2>Quiz: Pointer Arithmetic</h2>
+            <div id="quiz">
+                <p>1. What does incrementing a pointer do?</p>
+                <input type="radio" name="q1" value="Moves to next element"> Moves to next element<br>
+                <input type="radio" name="q1" value="Moves to previous element"> Moves to previous element<br>
+                <input type="radio" name="q1" value="Resets to start"> Resets to start<br>
+
+                <p>2. If <code>p</code> is a pointer to int and you do <code>p + 1</code>, what happens?</p>
+                <input type="radio" name="q2" value="Moves to next int"> Moves to next int<br>
+                <input type="radio" name="q2" value="Moves to next byte"> Moves to next byte<br>
+                <input type="radio" name="q2" value="No change"> No change<br>
+
+                <p>3. What does <code>p - 1</code> do to a pointer variable <code>p</code>?</p>
+                <input type="radio" name="q3" value="Moves to previous element"> Moves to previous element<br>
+                <input type="radio" name="q3" value="Moves to next element"> Moves to next element<br>
+                <input type="radio" name="q3" value="Nullifies pointer"> Nullifies pointer<br>
+
+                <p>4. Can you add two pointers together?</p>
+                <input type="radio" name="q4" value="Yes"> Yes<br>
+                <input type="radio" name="q4" value="No"> No<br>
+                <input type="radio" name="q4" value="Only if they are in the same array"> Only if they are in the same array<br>
+
+                <p>5. What happens when you subtract two pointers that point to the same array?</p>
+                <input type="radio" name="q5" value="Gives the index difference"> Gives the index difference<br>
+                <input type="radio" name="q5" value="Gives the memory difference"> Gives the memory difference<br>
+                <input type="radio" name="q5" value="Undefined behavior"> Undefined behavior<br>
+
+                <button onclick="checkAnswers()">Submit Quiz</button>
+                <div id="result"></div>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 Pointers Course</p>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>
