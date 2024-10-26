@@ -17,7 +17,6 @@ function checkAnswers() {
         const selected = document.querySelector(`input[name="${q}"]:checked`);
         const correctAnswer = answersIntro[q];
         
-        //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
         resultHtml += `<p>Q${i}:`;
 		i++;
 
@@ -61,7 +60,6 @@ function checkArithmeticAnswers() {
         const selected = document.querySelector(`input[name="${q}"]:checked`);
         const correctAnswer = answersArith[q];
 
-        //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
 		resultHtml += `<p>Q${i}:`;
 		i++;
 
@@ -107,7 +105,6 @@ function checkArrayAnswers() {
         const selected = document.querySelector(`input[name="${q}"]:checked`);
         const correctAnswer = answersArray[q];
 
-        //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
 		resultHtml += `<p>Q${i}:`;
 		i++;
         
@@ -152,7 +149,50 @@ function checkFunctionAnswers() {
         const selected = document.querySelector(`input[name="${q}"]:checked`);
         const correctAnswer = answersFunction[q];
 
-        //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
+		resultHtml += `<p>Q${i}:`;
+		i++;
+        
+        if (selected) {
+            const userAnswer = selected.value;
+            resultHtml += ` - Your Answer: <span style="color: ${userAnswer === correctAnswer ? 'green' : 'red'};">${userAnswer}</span>`;
+            resultHtml += userAnswer === correctAnswer ? ' (Correct)' : ` (Incorrect - Correct answer: <span style="color: green;">${correctAnswer}</span>)`;
+
+            if (userAnswer === correctAnswer) {
+                score++;
+            }
+        } else {
+            resultHtml += ' - Your Answer: <span style="color: red;">None</span> (Incorrect)';
+        }
+
+        resultHtml += '</p>';
+    }
+
+    resultHtml += `<h3>Your Score: ${score} out of ${totalQuestions}</h3>`;
+    
+    const resultDiv = document.getElementById('result');
+    resultDiv.innerHTML = resultHtml;
+}
+
+
+// Function for checking Dynamic Memory Allocation quiz answers
+function checkDynamicMemoryAnswers() {
+    const answersDynamicMemory = {
+        q1: "Allocates memory",
+        q2: "Memory allocation might fail",
+        q3: "Frees allocated memory",
+        q4: "To change the size of previously allocated memory",
+        q5: "Memory leak occurs"
+    };
+
+    let resultHtml = '<h3>Quiz Results</h3>';
+    let score = 0;
+    let totalQuestions = Object.keys(answersDynamicMemory).length;
+	let i = 1;
+
+    for (let q in answersDynamicMemory) {
+        const selected = document.querySelector(`input[name="${q}"]:checked`);
+        const correctAnswer = answersDynamicMemory[q];
+
 		resultHtml += `<p>Q${i}:`;
 		i++;
         
@@ -181,6 +221,8 @@ function checkFunctionAnswers() {
 
 
 
+
+
 // Attach the appropriate quiz checker based on the page
 document.addEventListener('DOMContentLoaded', () => {
     // Included logic here can add detection for newly created module content
@@ -188,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const arithmeticQuiz = document.querySelector('#quiz') && document.title.includes('Pointer Arithmetic');
     const arrayQuiz = document.querySelector('#quiz') && document.title.includes('Pointers and Arrays');
 	const functionQuiz = document.querySelector('#quiz') && document.title.includes('Pointers and Functions');
+	const dynamicMemoryQuiz = document.querySelector('#quiz') && document.title.includes('Dynamic Memory Allocation');
 
     const submitButton = document.querySelector('button');
     submitButton.onclick = () => {
@@ -199,6 +242,8 @@ document.addEventListener('DOMContentLoaded', () => {
             checkArrayAnswers();
         } else if (functionQuiz) {
 			checkFunctionAnswers();
+		} else if (dynamicMemoryQuiz) {
+			checkDynamicMemoryAnswers();
 		}
     };
 });

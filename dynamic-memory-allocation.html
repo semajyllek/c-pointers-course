@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Memory Allocation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Dynamic Memory Allocation in C</h1>
+        <a href="index.html">Back to Home</a>
+        <a href="introduction.html">Introduction</a>
+        <a href="pointer-arithmetic.html">Pointer Arithmetic</a>
+        <a href="pointers-and-arrays.html">Pointers and Arrays</a>
+        <a href="pointers-and-functions.html">Pointers and Functions</a>
+    </header>
+    <main>
+        <section>
+            <h2>Understanding Dynamic Memory Allocation</h2>
+            <p>Dynamic memory allocation allows you to allocate memory at runtime, providing flexibility in memory management.</p>
+            
+            <h3>Common Functions</h3>
+            <ul>
+                <li><strong>malloc:</strong> Allocates a specified number of bytes.</li>
+                <li><strong>calloc:</strong> Allocates space for an array of elements and initializes them to zero.</li>
+                <li><strong>realloc:</strong> Resizes previously allocated memory.</li>
+                <li><strong>free:</strong> Frees previously allocated memory.</li>
+            </ul>
+            
+            <h3>Example: Dynamic Array Allocation</h3>
+            <pre><code>
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    int n;
+    printf("Enter the number of elements: ");
+    scanf("%d", &n);
+    
+    // Allocate memory for n integers
+    int *arr = (int *)malloc(n * sizeof(int));
+    
+    if (arr == NULL) {
+        printf("Memory allocation failed!\n");
+        return 1; // Exit if allocation failed
+    }
+
+    // Initialize and display the array
+    for (int i = 0; i < n; i++) {
+        arr[i] = i + 1; // Initialize with values
+        printf("%d ", arr[i]);
+    }
+    
+    // Free the allocated memory
+    free(arr);
+    return 0;
+}
+            </code></pre>
+            
+            <h3>Best Practices</h3>
+            <p>Always check if the memory allocation was successful. Additionally, remember to free any dynamically allocated memory to prevent memory leaks.</p>
+        </section>
+
+        <section>
+            <h2>Quiz: Dynamic Memory Allocation</h2>
+            <div id="quiz">
+                <p>1. What does the function <code>malloc</code> do?</p>
+                <label for="q1">
+                    <input type="radio" name="q1" value="Allocates memory"> Allocates memory<br>
+                    <input type="radio" name="q1" value="Frees memory"> Frees memory<br>
+                    <input type="radio" name="q1" value="Resizes memory"> Resizes memory<br>
+                </label>
+
+                <p>2. Why should you check if the return value of <code>malloc</code> is NULL?</p>
+                <label for="q2">
+                    <input type="radio" name="q2" value="Memory allocation might fail"> Memory allocation might fail<br>
+                    <input type="radio" name="q2" value="It's not necessary"> It's not necessary<br>
+                    <input type="radio" name="q2" value="All memory allocations succeed"> All memory allocations succeed<br>
+                </label>
+
+				<p>3. What does <code>free</code> do?</p>
+                <label for="q3">
+                    <input type="radio" name="q3" value="Frees allocated memory"> Frees allocated memory<br>
+                    <input type="radio" name="q3" value="Allocates memory"> Allocates memory<br>
+                    <input type="radio" name="q3" value="Does nothing"> Does nothing<br>
+                </label>
+
+                <p>4. When should you use <code>realloc</code>?</p>
+                <label for="q4">
+                    <input type="radio" name="q4" value="To change the size of previously allocated memory"> To change the size of previously allocated memory<br>
+                    <input type="radio" name="q4" value="When you want to free memory"> When you want to free memory<br>
+                    <input type="radio" name="q4" value="To initialize variables"> To initialize variables<br>
+                </label>
+
+                <p>5. What happens if you forget to call <code>free</code> on dynamically allocated memory?</p>
+                <label for="q5">
+                    <input type="radio" name="q5" value="Nothing happens"> Nothing happens<br>
+                    <input type="radio" name="q5" value="Memory leak occurs"> Memory leak occurs<br>
+                    <input type="radio" name="q5" value="Memory is automatically freed"> Memory is automatically freed<br>
+                </label>
+
+                <button onclick="checkDynamicMemoryAnswers()">Submit Quiz</button>
+                <div id="result"></div>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 Pointers Course</p>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>
+
