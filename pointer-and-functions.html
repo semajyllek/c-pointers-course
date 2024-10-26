@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pointers and Functions</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Pointers and Functions in C</h1>
+        <a href="index.html">Back to Home</a>
+        <a href="introduction.html">Introduction</a>
+        <a href="pointer-arithmetic.html">Pointer Arithmetic</a>
+        <a href="pointers-and-arrays.html">Pointers and Arrays</a>
+    </header>
+    <main>
+        <section>
+            <h2>Understanding Pointers in Functions</h2>
+            <p>Pointers allow functions to modify the values of variables or to access large data types without making copies, optimizing memory usage.</p>
+            
+            <h3>Example: Modifying a Variable Through a Pointer</h3>
+            <pre><code>
+#include <stdio.h>
+
+void increment(int *p) {
+    (*p)++; // Increment the value at the address pointed by p
+}
+
+int main() {
+    int num = 5;
+    increment(&num);
+    printf("Updated value: %d\n", num); // Output will be 6
+    return 0;
+}
+            </code></pre>
+
+            <h3>Passing Arrays to Functions</h3>
+            <p>Arrays decay to pointers when passed to functions, allowing for direct modification of array elements:</p>
+            <pre><code>
+#include <stdio.h>
+
+void modifyArray(int *arr, int size) {
+    for (int i = 0; i < size; i++) {
+        arr[i] += 10; // Increase each element by 10
+    }
+}
+
+int main() {
+    int myArray[5] = {1, 2, 3, 4, 5};
+    modifyArray(myArray, 5);
+    
+    for (int i = 0; i < 5; i++) {
+        printf("%d ", myArray[i]); // Outputs: 11 12 13 14 15
+    }
+    return 0;
+}
+            </code></pre>
+        </section>
+
+        <section>
+            <h2>Quiz: Pointers and Functions</h2>
+            <div id="quiz">
+                <p>1. What is the primary benefit of passing a pointer to a function?</p>
+                <label for="q1">
+                    <input type="radio" name="q1" value="Can modify original variables"> Can modify original variables<br>
+                    <input type="radio" name="q1" value="Pass larger structures easily"> Pass larger structures easily<br>
+                    <input type="radio" name="q1" value="Both"> Both<br>
+                </label>
+
+                <p>2. If a function receives a pointer as a parameter, what can it do?</p>
+                <label for="q2">
+                    <input type="radio" name="q2" value="Only read the value"> Only read the value<br>
+                    <input type="radio" name="q2" value="Modify the variable"> Modify the variable<br>
+                    <input type="radio" name="q2" value="Nothing special"> Nothing special<br>
+                </label>
+
+                <p>3. What happens when you pass an array to a function?</p>
+                <label for="q3">
+                    <input type="radio" name="q3" value="A copy of the array is passed"> A copy of the array is passed<br>
+                    <input type="radio" name="q3" value="The pointer to the first element is passed"> The pointer to the first element is passed<br>
+                    <input type="radio" name="q3" value="An error occurs"> An error occurs<br>
+                </label>
+
+                <p>4. How can you return a pointer from a function?</p>
+                <label for="q4">
+                    <input type="radio" name="q4" value="Directly from the function"> Directly from the function<br>
+                    <input type="radio" name="q4" value="Only if it is a local variable"> Only if it is a local variable<br>
+                    <input type="radio" name="q4" value="It is not possible"> It is not possible<br>
+                </label>
+
+				<p>5. What will happen if you decrement a pointer?</p>
+                <label for="q5">
+                    <input type="radio" name="q5" value="It moves to the previous memory location of the same type"> It moves to the previous memory location of the same type<br>
+                    <input type="radio" name="q5" value="It moves randomly"> It moves randomly<br>
+                    <input type="radio" name="q5" value="It stays in the same place"> It stays in the same place<br>
+                </label>
+
+                <button onclick="checkFunctionAnswers()">Submit Quiz</button>
+                <div id="result"></div>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 Pointers Course</p>
+    </footer>
+    <script src="script.js"></script>
+</body>
+</html>
+

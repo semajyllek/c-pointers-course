@@ -133,6 +133,49 @@ function checkArrayAnswers() {
 }
 
 
+// Function for checking Pointers and Functions quiz answers
+function checkFunctionAnswers() {
+    const answersFunction = {
+        q1: "Both",
+        q2: "Modify the variable",
+        q3: "The pointer to the first element is passed",
+        q4: "Directly from the function",
+        q5: "It moves to the previous memory location of the same type"
+    };
+
+    let resultHtml = '<h3>Quiz Results</h3>';
+    let score = 0;
+    let totalQuestions = Object.keys(answersFunction).length;
+	let i = 1;
+
+    for (let q in answersFunction) {
+        const selected = document.querySelector(`input[name="${q}"]:checked`);
+        const correctAnswer = answersFunction[q];
+
+        //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
+		resultHtml += `<p>Q${i}:`;
+		i++;
+        
+        if (selected) {
+            const userAnswer = selected.value;
+            resultHtml += ` - Your Answer: <span style="color: ${userAnswer === correctAnswer ? 'green' : 'red'};">${userAnswer}</span>`;
+            resultHtml += userAnswer === correctAnswer ? ' (Correct)' : ` (Incorrect - Correct answer: <span style="color: green;">${correctAnswer}</span>)`;
+
+            if (userAnswer === correctAnswer) {
+                score++;
+            }
+        } else {
+            resultHtml += ' - Your Answer: <span style="color: red;">None</span> (Incorrect)';
+        }
+
+        resultHtml += '</p>';
+    }
+
+    resultHtml += `<h3>Your Score: ${score} out of ${totalQuestions}</h3>`;
+    
+    const resultDiv = document.getElementById('result');
+    resultDiv.innerHTML = resultHtml;
+}
 
 
 
@@ -144,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const introductionQuiz = document.querySelector('#quiz') ? document.title.includes('Introduction') : false;
     const arithmeticQuiz = document.querySelector('#quiz') && document.title.includes('Pointer Arithmetic');
     const arrayQuiz = document.querySelector('#quiz') && document.title.includes('Pointers and Arrays');
+	const functionQuiz = document.querySelector('#quiz') && document.title.includes('Pointers and Functions');
 
     const submitButton = document.querySelector('button');
     submitButton.onclick = () => {
@@ -153,7 +197,9 @@ document.addEventListener('DOMContentLoaded', () => {
             checkArithmeticAnswers();
         } else if (arrayQuiz) {
             checkArrayAnswers();
-        }
+        } else if (functionQuiz) {
+			checkFunctionAnswers();
+		}
     };
 });
 
