@@ -11,14 +11,16 @@ function checkAnswers() {
     let resultHtml = '<h3>Quiz Results</h3>';
     let score = 0;
     let totalQuestions = Object.keys(answersIntro).length;
+	let i = 1;
 
     for (let q in answersIntro) {
         const selected = document.querySelector(`input[name="${q}"]:checked`);
         const correctAnswer = answersIntro[q];
         
         //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
-        resultHtml += `<p>Q:`;
-		
+        resultHtml += `<p>Q${i}:`;
+		i++;
+
         if (selected) {
             const userAnswer = selected.value;
             resultHtml += ` - Your Answer: <span style="color: ${userAnswer === correctAnswer ? 'green' : 'red'};">${userAnswer}</span>`;
@@ -53,13 +55,16 @@ function checkArithmeticAnswers() {
     let resultHtml = '<h3>Quiz Results</h3>';
     let score = 0;
     let totalQuestions = Object.keys(answersArith).length;
+	let i = 1;
 
     for (let q in answersArith) {
         const selected = document.querySelector(`input[name="${q}"]:checked`);
         const correctAnswer = answersArith[q];
 
         //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
-		resultHtml += `<p>Q:`;
+		resultHtml += `<p>Q${i}:`;
+		i++;
+
         
         if (selected) {
             const userAnswer = selected.value;
@@ -96,13 +101,15 @@ function checkArrayAnswers() {
     let resultHtml = '<h3>Quiz Results</h3>';
     let score = 0;
     let totalQuestions = Object.keys(answersArray).length;
+	let i = 1;
 
     for (let q in answersArray) {
         const selected = document.querySelector(`input[name="${q}"]:checked`);
         const correctAnswer = answersArray[q];
 
         //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
-		resultHtml += `<p>Q:`;
+		resultHtml += `<p>Q${i}:`;
+		i++;
         
         if (selected) {
             const userAnswer = selected.value;
