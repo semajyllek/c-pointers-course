@@ -16,8 +16,9 @@ function checkAnswers() {
         const selected = document.querySelector(`input[name="${q}"]:checked`);
         const correctAnswer = answersIntro[q];
         
-        resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
-        
+        //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
+        resultHtml += `<p>Q:`;
+		
         if (selected) {
             const userAnswer = selected.value;
             resultHtml += ` - Your Answer: <span style="color: ${userAnswer === correctAnswer ? 'green' : 'red'};">${userAnswer}</span>`;
@@ -57,7 +58,8 @@ function checkArithmeticAnswers() {
         const selected = document.querySelector(`input[name="${q}"]:checked`);
         const correctAnswer = answersArith[q];
 
-        resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
+        //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
+		resultHtml += `<p>Q:`;
         
         if (selected) {
             const userAnswer = selected.value;
@@ -99,7 +101,8 @@ function checkArrayAnswers() {
         const selected = document.querySelector(`input[name="${q}"]:checked`);
         const correctAnswer = answersArray[q];
 
-        resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
+        //resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
+		resultHtml += `<p>Q:`;
         
         if (selected) {
             const userAnswer = selected.value;
