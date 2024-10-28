@@ -220,17 +220,59 @@ function checkDynamicMemoryAnswers() {
 
 
 
+// Function for checking Advanced Pointers quiz answers
+function checkAdvancedPointerAnswers() {
+    const answersAdvancedPointer = {
+        q1: "Pointer to a function",
+        q2: "int **ptr",
+        q3: "The element located at row i, column j",
+        q4: "To prevent memory leaks",
+        q5: "Memory that is not freed"
+    };
+
+    let resultHtml = '<h3>Quiz Results</h3>';
+    let score = 0;
+    let totalQuestions = Object.keys(answersAdvancedPointer).length;
+
+	for (let q in answersAdvancedPointer) {
+        const selected = document.querySelector(`input[name="${q}"]:checked`);
+        const correctAnswer = answersAdvancedPointer[q];
+
+        resultHtml += `<p>Q: ${document.querySelector(`label[for="${q}"]`).innerText}`;
+        
+        if (selected) {
+            const userAnswer = selected.value;
+            resultHtml += ` - Your Answer: <span style="color: ${userAnswer === correctAnswer ? 'green' : 'red'};">${userAnswer}</span>`;
+            resultHtml += userAnswer === correctAnswer ? ' (Correct)' : ` (Incorrect - Correct answer: <span style="color: green;">${correctAnswer}</span>)`;
+
+            if (userAnswer === correctAnswer) {
+                score++;
+            }
+        } else {
+            resultHtml += ' - Your Answer: <span style="color: red;">None</span> (Incorrect)';
+        }
+
+        resultHtml += '</p>';
+    }
+
+    resultHtml += `<h3>Your Score: ${score} out of ${totalQuestions}</h3>`;
+    
+    const resultDiv = document.getElementById('result');
+    resultDiv.innerHTML = resultHtml;
+}
 
 
 
-// Attach the appropriate quiz checker based on the page
+
+
+// Update the event listener to accommodate the new module
 document.addEventListener('DOMContentLoaded', () => {
-    // Included logic here can add detection for newly created module content
     const introductionQuiz = document.querySelector('#quiz') ? document.title.includes('Introduction') : false;
     const arithmeticQuiz = document.querySelector('#quiz') && document.title.includes('Pointer Arithmetic');
     const arrayQuiz = document.querySelector('#quiz') && document.title.includes('Pointers and Arrays');
-	const functionQuiz = document.querySelector('#quiz') && document.title.includes('Pointers and Functions');
-	const dynamicMemoryQuiz = document.querySelector('#quiz') && document.title.includes('Dynamic Memory Allocation');
+    const functionQuiz = document.querySelector('#quiz') && document.title.includes('Pointers and Functions');
+    const dynamicMemoryQuiz = document.querySelector('#quiz') && document.title.includes('Dynamic Memory Allocation');
+    const advancedPointerQuiz = document.querySelector('#quiz') && document.title.includes('Advanced Pointers');
 
     const submitButton = document.querySelector('button');
     submitButton.onclick = () => {
@@ -241,10 +283,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (arrayQuiz) {
             checkArrayAnswers();
         } else if (functionQuiz) {
-			checkFunctionAnswers();
-		} else if (dynamicMemoryQuiz) {
-			checkDynamicMemoryAnswers();
-		}
+            checkFunctionAnswers();
+        } else if (dynamicMemoryQuiz) {
+            checkDynamicMemoryAnswers();
+        } else if (advancedPointerQuiz) {
+            checkAdvancedPointerAnswers();
+        }
     };
 });
 

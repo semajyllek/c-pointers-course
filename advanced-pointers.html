@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Pointers in C</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Advanced Pointers in C</h1>
+        <a href="index.html">Back to Home</a>
+        <a href="introduction.html">Introduction</a>
+        <a href="pointer-arithmetic.html">Pointer Arithmetic</a>
+        <a href="pointers-and-arrays.html">Pointers and Arrays</a>
+        <a href="pointers-and-functions.html">Pointers and Functions</a>
+        <a href="dynamic-memory-allocation.html">Dynamic Memory Allocation</a>
+    </header>
+    <main>
+        <section>
+            <h2>Function Pointers</h2>
+            <p>Function pointers allow you to store the address of a function and call it using the pointer. This is particularly useful for implementing callbacks.</p>
+            <pre><code>
+#include <stdio.h>
+
+void greet() {
+    printf("Hello, World!\n");
+}
+
+int main() {
+    void (*funcPtr)() = greet; // Declare a function pointer and assign it
+    funcPtr(); // Call the function using the pointer
+    return 0;
+}
+            </code></pre>
+        </section>
+
+        <section>
+            <h2>Pointers to Pointers</h2>
+            <p>Pointers to pointers are useful when you need to manage multiple levels of indirection. They can also be used in managing dynamic multi-dimensional arrays.</p>
+            <pre><code>
+#include <stdio.h>
+
+int main() {
+    int val = 5;
+    int *ptr = &val; // Pointer to an int
+    int **ptrToPtr = &ptr; // Pointer to a pointer
+
+    printf("Value: %d\n", **ptrToPtr); // Accessing the value using the pointer to pointer
+    return 0;
+}
+            </code></pre>
+        </section>
+
+        <section>
+            <h2>Arrays of Pointers</h2>
+            <p>Arrays of pointers can store multiple addresses, which is particularly useful for dynamically allocated data structures.</p>
+            <pre><code>
+#include <stdio.h>
+
+int main() {
+    int *arr[3]; // Array of 3 integer pointers
+    for (int i = 0; i < 3; i++) {
+        arr[i] = (int *)malloc(sizeof(int)); // Allocate memory for each pointer
+        *arr[i] = (i + 1) * 10; // Initialize
+        printf("Value: %d\n", *arr[i]);
+    }
+
+    // Free allocated memory
+    for (int i = 0; i < 3; i++) {
+        free(arr[i]);
+    }
+    return 0;
+}
+            </code></pre>
+        </section>
+
+        <section>
+            <h2>Dynamic 2D Arrays</h2>
+            <p>Creating dynamic two-dimensional arrays using pointers can help manage complex data structures like matrices.</p>
+            <pre><code>
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    int rows = 3, cols = 4;
+    int **matrix = (int **)malloc(rows * sizeof(int *));
+    for (int i = 0; i < rows; i++) {
+        matrix[i] = (int *)malloc(cols * sizeof(int));
+    }
+
+    // Initialize and display the matrix
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            matrix[i][j] = (i + 1) * (j + 1);
+            printf("%d ", matrix[i][j]);
+        }
+        printf("\n");
+    }
+
+    // Free allocated memory
+    for (int i = 0; i < rows; i++) {
+        free(matrix[i]);
+    }
+    free(matrix);
+    return 0;
+}
+            </code></pre>
+        </section>
+
+        <section>
+            <h2>Memory Management Best Practices</h2>
+            <p>It's crucial to manage dynamically allocated memory to prevent memory leaks. Always ensure that every call to <code>malloc</code> or related functions has a corresponding call to <code>free</code>.</p>
+            <p>Valgrind is a helpful tool for detecting memory leaks, helping you debug and improve memory usage in your programs.</p>
+        </section>
+
+        <section>
+            <h2>Using Valgrind</h2>
+            <p>Valgrind is a programming tool used for memory debugging, memory leak detection, and profiling. To use Valgrind:</p>
+            <ol>
+                <li>Install Valgrind on your system. You can typically do this using package managers. For example, on Ubuntu, you can run:
+                    <pre><code>sudo apt install valgrind</code></pre>
+                </li>
+                <li>Compile your C program with debugging information:
+                    <pre><code>gcc -g your_program.c -o your_program</code></pre>
+                </li>
+                <li>Run your program with Valgrind:
+                    <pre><code>valgrind --leak-check=full ./your_program</code></pre>
+                </li>
+                <li>Analyze the output: Valgrind will provide details about memory usage, any memory leaks, and where issues may be occurring in your code.</li>
+            </ol>
+            <p>Example output includes not only memory leak summaries but also hints about uninitialized memory reads, which can help catch subtle bugs.</p>
+        </section>
+
+        <section>
+            <h2>Quiz: Advanced Pointers</h2>
+            <div id="quiz">
+                <p>1. What is a function pointer?</p>
+                <label for="q1">
+                    <input type="radio" name="q1" value="Pointer to a function"> Pointer to a function<br>
+                    <input type="radio" name="q1" value="Pointer to an integer"> Pointer to an integer<br>
+                    <input type="radio" name="q1" value="A type of array"> A type of array<br>
+                </label>
+
+                <p>2. How do you declare a pointer to a pointer?</p>
+                <label for="q2">
+                    <input type="radio" name="q2" value="int **ptr"> int **ptr<br>
+                    <input type="radio" name="q2" value="int *ptr"> int *ptr<br>
+                    <input type="radio" name="q2" value="pointer **ptr"> pointer **ptr<br>
+                </label>
+
+                <p>3. What does the expression <code>matrix[i][j]</code> in a dynamic 2D array refer to?</p>
+                <label for="q3">
+                    <input type="radio" name="q3" value="The first element of the first row"> The first element of the first row<br>
+                    <input type="radio" name="q3" value="The element located at row i, column j"> The element located at row i, column j<br>
+                    <input type="radio" name="q3" value="The pointer to the first row"> The pointer to the first row<br>
+                </label>
+
+                <p>4. Why is it important to free dynamically allocated memory?</p>
+                <label for="q4">
+                    <input type="radio" name="q4" value="To clear the cache"> To clear the cache<br>
+                    <input type="radio" name="q4" value="To prevent memory leaks"> To prevent memory leaks<br>
+                    <input type="radio" name="q4" value="It's not important"> It's not important<br>
+                </label>
+
+                <p>5. What does a memory leak mean?</p>
+                <label for="q5">
+                    <input type="radio" name="q5" value="Memory that is not used"> Memory that is not used<br>
+                    <input type="radio" name="q5" value="Memory that is not freed"> Memory that is not freed<br>
+                    <input type="radio" name="q5" value="Both are correct"> Both are correct<br>
+                </label>
+
+                <button onclick="checkAdvancedPointerAnswers()">Submit Quiz</button>
+                <div id="result"></div>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2024 Pointers Course</p>
+	</footer>
+    <script src="script.js"></script>
+</body>
+</html>
