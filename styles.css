@@ -25,9 +25,7 @@ main {
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
-
-
-/* Code styling for luminescent text */
+/* Code styling for code blocks */
 pre {
     background-color: #0e0e0e; /* Black background for code blocks */
     color: #00ff00; /* Luminescent green text */
@@ -36,22 +34,11 @@ pre {
     overflow-x: auto; /* Allows horizontal scrolling for long lines */
 }
 
-
-/* Styling for inline code references in text */
+/* Inline code references */
 code {
     color: #00ff00; /* Luminescent green text */
-    background-color: rgba(0, 255, 0, 0.3); /* Light translucent green background for visibility */
+    background-color: rgba(0, 0, 0, 0.2); /* Dark translucent background */
     padding: 2px 4px; /* Padding for better spacing */
     border-radius: 3px; /* Slight rounding of edges */
     font-weight: bold; /* Bold text to enhance visibility */
-}
-
-
-h2, h3 {
-    color: #333; /* Header text color */
-}
-
-footer {
-    text-align: center;
-    margin-top: 20px;
 }
