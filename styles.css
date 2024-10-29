@@ -36,12 +36,14 @@ pre {
     overflow-x: auto; /* Allows horizontal scrolling for long lines */
 }
 
-/* Inline code elements */
+
+/* Styling for inline code references in text */
 code {
     color: #00ff00; /* Luminescent green text */
-    background-color: rgba(0, 255, 0, 0.2); /* Light translucent green background */
+    background-color: rgba(0, 255, 0, 0.3); /* Light translucent green background for visibility */
     padding: 2px 4px; /* Padding for better spacing */
     border-radius: 3px; /* Slight rounding of edges */
+    font-weight: bold; /* Bold text to enhance visibility */
 }
 
 
