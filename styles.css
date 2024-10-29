@@ -34,11 +34,16 @@ pre {
     overflow-x: auto; /* Allows horizontal scrolling for long lines */
 }
 
-/* Inline code references */
+/* Styling for inline code only */
 code {
     color: #00ff00; /* Luminescent green text */
     background-color: rgba(50, 50, 50, 0.8); /* Deeper gray translucent background */
     padding: 2px 4px; /* Padding for better spacing */
     border-radius: 3px; /* Slight rounding of edges */
     font-weight: bold; /* Bold text to enhance visibility */
+}
+
+/* Important: Reset styles for inline code inside pre blocks to avoid conflicts */
+pre code {
+    background-color: transparent; /* No background for inline code within pre blocks */
 }
