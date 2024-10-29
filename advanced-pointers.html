@@ -21,7 +21,8 @@
             <h2>Function Pointers</h2>
             <p>Function pointers allow you to store the address of a function and call it using the pointer. This is particularly useful for implementing callbacks.</p>
             <pre><code>
-#include <stdio.h>
+#include &lt;stdio.h&gt;
+
 
 void greet() {
     printf("Hello, World!\n");
@@ -39,7 +40,7 @@ int main() {
             <h2>Pointers to Pointers</h2>
             <p>Pointers to pointers are useful when you need to manage multiple levels of indirection. They can also be used in managing dynamic multi-dimensional arrays.</p>
             <pre><code>
-#include <stdio.h>
+#include &lt;stdio.h&gt;
 
 int main() {
     int val = 5;
@@ -56,7 +57,7 @@ int main() {
             <h2>Arrays of Pointers</h2>
             <p>Arrays of pointers can store multiple addresses, which is particularly useful for dynamically allocated data structures.</p>
             <pre><code>
-#include <stdio.h>
+#include &lt;stdio.h&gt;
 
 int main() {
     int *arr[3]; // Array of 3 integer pointers
@@ -79,8 +80,8 @@ int main() {
             <h2>Dynamic 2D Arrays</h2>
             <p>Creating dynamic two-dimensional arrays using pointers can help manage complex data structures like matrices.</p>
             <pre><code>
-#include <stdio.h>
-#include <stdlib.h>
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
 
 int main() {
     int rows = 3, cols = 4;
