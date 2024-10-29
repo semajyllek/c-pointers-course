@@ -13,15 +13,25 @@
         <a href="introduction.html">Introduction</a>
         <a href="pointer-arithmetic.html">Pointer Arithmetic</a>
         <a href="pointers-and-arrays.html">Pointers and Arrays</a>
+        <a href="dynamic-memory-allocation.html">Dynamic Memory Allocation</a>
     </header>
     <main>
         <section>
             <h2>Understanding Pointers in Functions</h2>
-            <p>Pointers allow functions to modify the values of variables or to access large data types without making copies, optimizing memory usage.</p>
+            <p>Pointers enable functions to modify variables directly, allowing for efficient memory usage and avoiding unnecessary copies, especially with large data structures.</p>
             
+            <h3>Benefits of Using Pointers in Functions:</h3>
+            <ul>
+                <li>Modify original variables</li>
+                <li>Pass large structures efficiently</li>
+                <li>Implement callback functions</li>
+            </ul>
+        </section>
+
+        <section>
             <h3>Example: Modifying a Variable Through a Pointer</h3>
             <pre><code>
-#include &lt;stdio.h&gt;
+#include <stdio.h>
 
 void increment(int *p) {
     (*p)++; // Increment the value at the address pointed by p
@@ -29,16 +39,19 @@ void increment(int *p) {
 
 int main() {
     int num = 5;
-    increment(&num);
+    increment(&num); // Pass address of num
     printf("Updated value: %d\n", num); // Output will be 6
     return 0;
 }
             </code></pre>
+            <p>In this example, the function <code>increment</code> takes a pointer to an integer. By passing the address of <code>num</code>, it modifies the variable directly.</p>
+        </section>
 
+        <section>
             <h3>Passing Arrays to Functions</h3>
-            <p>Arrays decay to pointers when passed to functions, allowing for direct modification of array elements:</p>
+            <p>When arrays are passed into functions, they decay to pointers. This means the function can directly modify the elements of the array:</p>
             <pre><code>
-#include &lt;stdio.h&gt;
+#include <stdio.h>
 
 void modifyArray(int *arr, int size) {
     for (int i = 0; i < size; i++) {
@@ -48,7 +61,7 @@ void modifyArray(int *arr, int size) {
 
 int main() {
     int myArray[5] = {1, 2, 3, 4, 5};
-    modifyArray(myArray, 5);
+    modifyArray(myArray, 5); // Pass array to the function
     
     for (int i = 0; i < 5; i++) {
         printf("%d ", myArray[i]); // Outputs: 11 12 13 14 15
@@ -56,6 +69,41 @@ int main() {
     return 0;
 }
             </code></pre>
+            <p>This allows direct manipulation of the array elements inside the function, demonstrating the power of pointers in C.</p>
+        </section>
+
+        <section>
+            <h3>Returning Pointers from Functions</h3>
+            <p>Functions can return pointers, but this needs to be done with caution, especially when returning addresses of local variables.</p>
+            <pre><code>
+#include <stdio.h>
+#include <stdlib.h>
+
+int* createArray(int size) {
+    return (int*)malloc(size * sizeof(int)); // Dynamically allocate array
+}
+
+int main() {
+    int *arr = createArray(5); // Get pointer to dynamically allocated array
+    for (int i = 0; i < 5; i++) {
+        arr[i] = (i + 1) * 10; // Initialize
+        printf("%d ", arr[i]);
+    }
+    
+    free(arr); // Free allocated memory
+    return 0;
+}
+            </code></pre>
+            <p>In this example, the function <code>createArray</code> dynamically allocates memory for an array and returns a pointer to it. The caller is responsible for freeing the allocated memory to avoid leaks.</p>
+        </section>
+
+        <section>
+            <h3>Memory Management Tips</h3>
+            <ul>
+                <li>Always check if memory allocation was successful by verifying that the returned pointer is not <code>NULL</code>.</li>
+                <li>After dynamically allocating memory, ensure you use <code>free</code>() to release the memory when it's no longer needed.</li>
+                <li>Never return a pointer to a local variable from a function as it will not exist after the function exits.</li>
+            </ul>
         </section>
 
         <section>
@@ -89,7 +137,7 @@ int main() {
                     <input type="radio" name="q4" value="It is not possible"> It is not possible<br>
                 </label>
 
-				<p>5. What will happen if you decrement a pointer?</p>
+                <p>5. What will happen if you decrement a pointer?</p>
                 <label for="q5">
                     <input type="radio" name="q5" value="It moves to the previous memory location of the same type"> It moves to the previous memory location of the same type<br>
                     <input type="radio" name="q5" value="It moves randomly"> It moves randomly<br>
@@ -103,9 +151,10 @@ int main() {
         </section>
     </main>
     <footer>
-        <p>&copy; 2024 Pointers Course - James Kelly</p>
+        <p>&copy; 2024 Pointers Course</p>
     </footer>
     <script src="script.js"></script>
 </body>
 </html>
 
+            
