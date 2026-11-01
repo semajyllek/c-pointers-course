@@ -3,91 +3,506 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pointer Arithmetic</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Pointer Arithmetic · Learn C</title>
+    <meta name="description" content="Why p + 1 moves by sizeof(*p) bytes, walking arrays with pointers, *p++, pointer subtraction and comparison, and the rules that keep it defined.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
 </head>
 <body>
-    <header>
-        <h1>Pointer Arithmetic in C</h1>
-        <a href="index.html">Back to Home</a>
-        <a href="introduction.html">Introduction</a>
-    </header>
-    <main>
-        <section>
-            <h2>What is Pointer Arithmetic?</h2>
-            <p>Pointer arithmetic allows programmers to perform arithmetic operations on addresses. It can simplify tasks like iterating through arrays.</p>
-            <h3>Basic Operations:</h3>
-            <ul>
-                <li><strong>Increment (++)</strong>: Moves the pointer to the next element of the type it points to.</li>
-                <li><strong>Decrement (--)</strong>: Moves the pointer to the previous element of the type it points to.</li>
-                <li><strong>Addition (+)</strong>: Adds an integer to the pointer, moving it forward in the array.</li>
-                <li><strong>Subtraction (-)</strong>: Subtracts an integer from the pointer, moving it backward in the array.</li>
-            </ul>
-            <h3>Example:</h3>
-            <pre><code>
-#include &lt;stdio.h&gt;
+<main>
+    <h1>Pointer Arithmetic</h1>
+    <p class="lead">A pointer holds an address, and addresses are numbers, so C lets you add to them and subtract them. But pointer arithmetic doesn't count in bytes. It counts in <em>elements</em>: <code>p + 1</code> means "the next one of whatever <code>p</code> points to". That rule is what lets a pointer walk through an array.</p>
 
-int main() {
-    int arr[] = {10, 20, 30, 40, 50};
-    int *p = arr; // Pointer to the first element of the array
+    <h2><code>p + 1</code> moves by one element</h2>
+    <p>In the Arrays lesson you saw that array elements sit right next to each other in memory, <code>sizeof</code> bytes apart. Suppose <code>p</code> points to one of them. Then:</p>
+    <ul>
+        <li><code>p + 1</code> is the address of the <strong>next</strong> element: <code>sizeof *p</code> bytes further on.</li>
+        <li><code>p + n</code> is <code>n</code> elements on, which is <code>n * sizeof *p</code> bytes.</li>
+        <li><code>p - 1</code> is the previous element.</li>
+    </ul>
+    <p>The compiler does the multiplication for you, using the pointer's type. That's the other big reason pointers have types (the first, from Pointer Basics, was knowing how many bytes <code>*p</code> reads). Run this and compare each pair of addresses:</p>
 
-    for (int i = 0; i < 5; i++) {
-        printf("Value: %d, Address: %p\n", *p, (void*)p);
-        p++; // Move to the next integer
-    }
-    return 0;
-}
-            </code></pre>
-            <p>In the example above, we increment the pointer <code>p</code> to access each element in the array <code>arr</code>.</p>
-        </section>
+    <script type="text/c">
+        #include <stdio.h>
 
-        <section>
-            <h2>Quiz: Pointer Arithmetic</h2>
-            <div id="quiz">
-                <p>1. What does incrementing a pointer do?</p>
-                <label for="q1">
-                    <input type="radio" name="q1" value="Moves to next element"> Moves to next element<br>
-                    <input type="radio" name="q1" value="Moves to previous element"> Moves to previous element<br>
-                    <input type="radio" name="q1" value="Resets to start"> Resets to start<br>
-                </label>
+        int main(void) {
+            int    ia[3] = {0};
+            char   ca[3] = {0};
+            double da[3] = {0};
 
-                <p>2. If <code>p</code> is a pointer to int and you do <code>p + 1</code>, what happens?</p>
-                <label for="q2">
-                    <input type="radio" name="q2" value="Moves to next int"> Moves to next int<br>
-                    <input type="radio" name="q2" value="Moves to next byte"> Moves to next byte<br>
-                    <input type="radio" name="q2" value="No change"> No change<br>
-                </label>
+            int    *ip = &ia[0];
+            char   *cp = &ca[0];
+            double *dp = &da[0];
 
-                <p>3. What does <code>p - 1</code> do to a pointer variable <code>p</code>?</p>
-                <label for="q3">
-                    <input type="radio" name="q3" value="Moves to previous element"> Moves to previous element<br>
-                    <input type="radio" name="q3" value="Moves to next element"> Moves to next element<br>
-                    <input type="radio" name="q3" value="Nullifies pointer"> Nullifies pointer<br>
-                </label>
+            printf("int *    p = %p   p + 1 = %p   (sizeof = %zu)\n", (void *)ip, (void *)(ip + 1), sizeof *ip);
+            printf("char *   p = %p   p + 1 = %p   (sizeof = %zu)\n", (void *)cp, (void *)(cp + 1), sizeof *cp);
+            printf("double * p = %p   p + 1 = %p   (sizeof = %zu)\n", (void *)dp, (void *)(dp + 1), sizeof *dp);
+            return 0;
+        }
+    </script>
+    <p>The addresses are in hexadecimal and differ every run, but the gaps don't: the <code>int *</code> moves by 4 bytes, the <code>char *</code> by 1 and the <code>double *</code> by 8 (on typical systems). Same <code>+ 1</code> in the source, three different numbers of bytes.</p>
+    <table>
+        <thead><tr><th>If <code>p</code> is</th><th>and holds</th><th><code>p + 1</code> holds</th><th><code>p + 3</code> holds</th></tr></thead>
+        <tbody>
+            <tr><td><code>char *</code></td><td><code>0x1000</code></td><td><code>0x1001</code></td><td><code>0x1003</code></td></tr>
+            <tr><td><code>int *</code> (4-byte int)</td><td><code>0x1000</code></td><td><code>0x1004</code></td><td><code>0x100c</code></td></tr>
+            <tr><td><code>double *</code></td><td><code>0x1000</code></td><td><code>0x1008</code></td><td><code>0x1018</code></td></tr>
+        </tbody>
+    </table>
 
-                <p>4. Can you add two pointers together?</p>
-                <label for="q4">
-                    <input type="radio" name="q4" value="Yes"> Yes<br>
-                    <input type="radio" name="q4" value="No"> No<br>
-                    <input type="radio" name="q4" value="Only if they are in the same array"> Only if they are in the same array<br>
-                </label>
+    <h2>Walking an array with a pointer</h2>
+    <p>If <code>p</code> points to <code>a[0]</code>, then <code>p + i</code> points to <code>a[i]</code>, and so <code>*(p + i)</code> <em>is</em> <code>a[i]</code>. Instead of an index, you can keep a pointer and move it along:</p>
+    <script type="text/c">
+        #include <stdio.h>
 
-                <p>5. What happens when you subtract two pointers that point to the same array?</p>
-                <label for="q5">
-                    <input type="radio" name="q5" value="Gives the index difference"> Gives the index difference<br>
-                    <input type="radio" name="q5" value="Gives the memory difference"> Gives the memory difference<br>
-                    <input type="radio" name="q5" value="Undefined behavior"> Undefined behavior<br>
-                </label>
+        int main(void) {
+            int a[5] = {10, 20, 30, 40, 50};
+            int *p = &a[0];             // point at the first element
 
-				<br>
-                <button onclick="checkArithmeticAnswers()">Submit Quiz</button>
-                <div id="result"></div>
-            </div>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2024 Pointers Course - James Kelly</p>
-    </footer>
-    <script src="script.js"></script>
+            printf("*p       = %d\n", *p);
+            printf("*(p + 2) = %d\n", *(p + 2));   // same as a[2]
+
+            p = p + 3;                  // now points at a[3]
+            printf("after p = p + 3, *p = %d\n", *p);
+
+            p--;                        // back one element, to a[2]
+            printf("after p--, *p = %d\n", *p);
+            return 0;
+        }
+    </script>
+    <p>The parentheses in <code>*(p + 2)</code> matter. <code>*</code> binds more tightly than <code>+</code>, so <code>*p + 2</code> means <code>(*p) + 2</code>: "the value at <code>p</code>, plus 2", which is 12 here, not 30.</p>
+    <div class="callout tip">
+        <span class="callout-title">You'll also see <code>int *p = a;</code></span>
+        <p>Writing the array's name on its own, without an index, gives you a pointer to its first element, so <code>int *p = a;</code> means the same as <code>int *p = &amp;a[0];</code>. <em>Why</em> that works (it's called array decay) is the subject of the next lesson, Pointers &amp; Arrays. This lesson writes <code>&amp;a[0]</code> to keep things explicit.</p>
+    </div>
+
+    <p>Here's the standard pointer loop. Step through and watch the arrow move one <code>int</code> (4 bytes) at a time. <code>end</code> holds the address just <em>past</em> the last element. It has no arrow, because there's no element there to point at.</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+
+            int main(void) {
+                int a[4] = {10, 20, 30, 40};
+                int *p = &a[0];
+                int *end = &a[0] + 4;   // one past the last element
+                int sum = 0;
+                while (p != end) {
+                    sum += *p;
+                    p++;
+                }
+                printf("%d\n", sum);
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "heap": false,
+          "steps": [
+            { "line": 4, "note": "Four <code>int</code>s, 4 bytes apart, starting at <code>0x7ffe10</code>.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] }] }] },
+            { "line": 5, "note": "<code>p</code> holds the address of <code>a[0]</code>.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe10", "ptr": "0x7ffe10" }] }] },
+            { "line": 6, "note": "<code>&amp;a[0] + 4</code> is 4 elements on: <code>0x7ffe10 + 4 * 4 = 0x7ffe20</code>, the first byte <em>after</em> the array. Forming this one-past-the-end address is allowed; dereferencing it is not.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe10", "ptr": "0x7ffe10" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" }] }] },
+            { "line": 7, "note": "<code>sum</code> starts at 0.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe10", "ptr": "0x7ffe10" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "0" }] }] },
+            { "line": 8, "note": "<code>p != end</code>: <code>0x7ffe10</code> isn't <code>0x7ffe20</code>, so the loop body runs.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe10", "ptr": "0x7ffe10" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "0" }] }] },
+            { "line": 9, "note": "<code>*p</code> is 10, so <code>sum</code> becomes 10.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe10", "ptr": "0x7ffe10" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "10" }] }] },
+            { "line": 10, "note": "<code>p++</code> adds one <em>element</em>: the address goes up by 4, from <code>0x7ffe10</code> to <code>0x7ffe14</code>. The arrow moves to <code>a[1]</code>.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe14", "ptr": "0x7ffe14" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "10" }] }] },
+            { "line": 9, "note": "Still not at <code>end</code>. <code>sum += 20</code> makes 30.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe14", "ptr": "0x7ffe14" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "30" }] }] },
+            { "line": 10, "note": "<code>p++</code>: <code>0x7ffe14</code> → <code>0x7ffe18</code>, pointing at <code>a[2]</code>.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe18", "ptr": "0x7ffe18" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "30" }] }] },
+            { "line": 9, "note": "<code>sum += 30</code> makes 60.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe18", "ptr": "0x7ffe18" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "60" }] }] },
+            { "line": 10, "note": "<code>p++</code>: <code>0x7ffe18</code> → <code>0x7ffe1c</code>, the last element.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe1c", "ptr": "0x7ffe1c" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "60" }] }] },
+            { "line": 9, "note": "<code>sum += 40</code> makes 100.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe1c", "ptr": "0x7ffe1c" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "100" }] }] },
+            { "line": 10, "note": "<code>p++</code>: <code>0x7ffe1c</code> → <code>0x7ffe20</code>. <code>p</code> is now one past the end, equal to <code>end</code>, and points at no element, so there's no arrow.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe20" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "100" }] }] },
+            { "line": 8, "note": "<code>p != end</code> is now false, so the loop ends <em>without</em> ever dereferencing the one-past-the-end address.",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe20" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "100" }] }] },
+            { "line": 12, "note": "10 + 20 + 30 + 40.", "output": "100",
+              "stack": [{ "fn": "main", "vars": [
+                { "name": "a", "type": "int[4]", "cells": [{ "addr": "0x7ffe10", "value": "10" }, { "addr": "0x7ffe14", "value": "20" }, { "addr": "0x7ffe18", "value": "30" }, { "addr": "0x7ffe1c", "value": "40" }] },
+                { "name": "p", "type": "int *", "addr": "0x7ffe08", "value": "0x7ffe20" },
+                { "name": "end", "type": "int *", "addr": "0x7ffe00", "value": "0x7ffe20" },
+                { "name": "sum", "type": "int", "addr": "0x7ffdfc", "value": "100" }] }] },
+            { "line": 14, "note": "<code>main</code> returns.", "output": "100", "stack": [] }
+          ]
+        }
+        </script>
+    </div>
+
+    <p>You can write the same loop with <code>for</code>, and use <code>&lt;</code> instead of <code>!=</code>:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            double prices[] = {4.99, 12.50, 0.75, 3.20};
+            int n = sizeof prices / sizeof prices[0];
+
+            double total = 0.0;
+            for (double *p = &prices[0]; p < &prices[0] + n; p++) {
+                total += *p;
+            }
+            printf("total: %.2f\n", total);
+            return 0;
+        }
+    </script>
+    <p>Note that nothing changed in the loop except the element type. <code>p++</code> on a <code>double *</code> moves 8 bytes, and you didn't have to think about it.</p>
+
+    <h2><code>*p++</code> versus <code>(*p)++</code></h2>
+    <p>Pointer loops are often written compactly with <code>*p++</code>, and its look-alikes do quite different things. The rule: postfix <code>++</code> binds more tightly than unary <code>*</code>, while prefix <code>++</code> and <code>*</code> apply right to left.</p>
+    <table>
+        <thead><tr><th>Expression</th><th>Means</th><th>Value of the expression</th><th>Changes</th></tr></thead>
+        <tbody>
+            <tr><td><code>*p++</code></td><td><code>*(p++)</code></td><td>the element <code>p</code> pointed to <em>before</em></td><td><code>p</code> moves to the next element</td></tr>
+            <tr><td><code>(*p)++</code></td><td>increment the pointed-to value</td><td>the element's old value</td><td>the element goes up by 1; <code>p</code> stays put</td></tr>
+            <tr><td><code>*++p</code></td><td><code>*(++p)</code></td><td>the <em>next</em> element</td><td><code>p</code> moves first</td></tr>
+            <tr><td><code>++*p</code></td><td><code>++(*p)</code></td><td>the element's new value</td><td>the element goes up by 1</td></tr>
+        </tbody>
+    </table>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int a[3] = {10, 20, 30};
+            int *p = &a[0];
+
+            printf("%d\n", *p++);    // 10, and p moves to a[1]
+            printf("%d\n", *p);      // 20
+
+            printf("%d\n", (*p)++);  // 20, and a[1] becomes 21; p stays at a[1]
+            printf("%d\n", a[1]);    // 21
+
+            printf("%d\n", *++p);    // p moves to a[2] first: 30
+            printf("%d\n", ++*p);    // a[2] becomes 31: 31
+
+            printf("a = {%d, %d, %d}\n", a[0], a[1], a[2]);
+            return 0;
+        }
+    </script>
+    <p><code>*p++</code> is idiomatic: "use this element, then move on". It's the heart of many classic C loops, such as copying a string: <code>while (*src != '\0') { *dst++ = *src++; }</code>. If you ever mean "increment the value", write the parentheses: <code>(*p)++</code>.</p>
+
+    <h2>Subtracting pointers</h2>
+    <p>Subtracting one pointer from another (both into the same array) gives the <strong>number of elements</strong> between them, not the number of bytes. The result has type <code>ptrdiff_t</code>, a signed integer type defined in <code>&lt;stddef.h&gt;</code>, and you print it with <code>%td</code>.</p>
+    <script type="text/c">
+        #include <stddef.h>
+        #include <stdio.h>
+
+        int main(void) {
+            int a[6] = {5, 8, 13, 21, 34, 55};
+            int *first = &a[0];
+            int *found = &a[4];
+
+            ptrdiff_t distance = found - first;
+            printf("found is %td elements after first\n", distance);
+            printf("so *found is a[%td] = %d\n", distance, a[distance]);
+            printf("first - found = %td\n", first - found);   // negative
+            printf("one-past-end - first = %td (the array length)\n", (&a[0] + 6) - first);
+            return 0;
+        }
+    </script>
+    <p>That makes pointer subtraction the way to turn a pointer back into an index: <code>p - &amp;a[0]</code> is the index of the element <code>p</code> points at. It's also why <code>end - start</code> is a length: for a one-past-the-end <code>end</code>, it's exactly the number of elements.</p>
+    <p>The rule is that both pointers must point into (or one past the end of) the <strong>same</strong> array. Subtracting pointers into two unrelated arrays is undefined: they aren't guaranteed to be any particular distance apart, so the answer would be meaningless.</p>
+
+    <h2>Comparing pointers</h2>
+    <ul>
+        <li><code>==</code> and <code>!=</code> work on any two pointers of compatible type: are they the same address? (Comparing with <code>NULL</code> is the most common case.)</li>
+        <li><code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> are only defined for pointers into the same array (or one past its end). <code>p &lt; q</code> then means "<code>p</code> points to an earlier element than <code>q</code>".</li>
+    </ul>
+    <p>That's what makes <code>p &lt; end</code> a valid loop condition. Here's an in-place reverse using two pointers that walk toward each other and stop when they meet:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int a[7] = {1, 2, 3, 4, 5, 6, 7};
+            int *left = &a[0];
+            int *right = &a[6];        // the last element, not one past it
+
+            while (left < right) {
+                int tmp = *left;
+                *left = *right;
+                *right = tmp;
+                left++;
+                right--;
+            }
+
+            for (int *p = &a[0]; p < &a[0] + 7; p++) {
+                printf("%d ", *p);
+            }
+            printf("\n");
+            return 0;
+        }
+    </script>
+
+    <h2>The rules: staying inside the array</h2>
+    <p>Pointer arithmetic is only defined while you stay within one array. Precisely, for an array of <code>N</code> elements:</p>
+    <table>
+        <thead><tr><th>Pointer</th><th>Compute it?</th><th>Compare it?</th><th>Dereference it?</th></tr></thead>
+        <tbody>
+            <tr><td><code>&amp;a[0]</code> … <code>&amp;a[N-1]</code></td><td>yes</td><td>yes</td><td>yes</td></tr>
+            <tr><td><code>&amp;a[0] + N</code> (one past the end)</td><td>yes</td><td>yes</td><td><strong>no</strong></td></tr>
+            <tr><td>anything before <code>&amp;a[0]</code> or beyond one past the end</td><td><strong>no</strong></td><td>no</td><td>no</td></tr>
+        </tbody>
+    </table>
+    <p>The special one-past-the-end address exists so that loops like <code>while (p != end)</code> have something to stop at. A plain variable counts as an array of one element for these rules, so <code>&amp;x + 1</code> is a valid one-past-the-end pointer too.</p>
+    <script type="text/c" data-static>
+        int a[4] = {10, 20, 30, 40};
+        int *end = &a[0] + 4;   // fine: one past the end
+        int v = *end;           // UB: there's no element there
+        int *q = &a[0] + 5;     // UB, even if q is never dereferenced
+        int *r = &a[0] - 1;     // UB, even if r is never dereferenced
+    </script>
+    <div class="callout danger">
+        <span class="callout-title">Just computing an out-of-range pointer is undefined</span>
+        <p>It's tempting to think a pointer is "only dangerous when you dereference it". The standard is stricter: <em>creating</em> a pointer outside the array (other than one past the end) is already undefined behaviour. In practice the classic bug is a backward loop like <code>for (p = end - 1; p &gt;= &amp;a[0]; p--)</code>, whose last <code>p--</code> steps to before the start. On most machines it happens to work, but optimisers are allowed to assume it never happens, and occasionally they break such code. Walk backwards by decrementing <em>before</em> use instead: <code>for (p = end; p != &amp;a[0]; ) { p--; … }</code>.</p>
+    </div>
+
+    <h2>What you can't do</h2>
+    <ul>
+        <li><strong>Add two pointers.</strong> <code>p + q</code> is a compile error. An address plus an address has no meaning (what's your house number plus your neighbour's?). Pointer <em>minus</em> pointer is fine, and gives a count.</li>
+        <li><strong>Multiply or divide pointers</strong>, or use <code>%</code> on them: compile errors.</li>
+        <li><strong>Arithmetic on <code>void *</code>.</strong> A <code>void *</code> is an address with no element type (you'll meet it properly in Advanced Pointers), so the compiler doesn't know how far <code>+ 1</code> should move. Standard C forbids it.</li>
+    </ul>
+    <script type="text/c" data-static>
+        int x = 5;
+        void *vp = &x;
+        vp + 1;                     // not standard C: how big is a "void"?
+        (unsigned char *)vp + 1;    // fine: one byte on
+    </script>
+    <div class="callout warn">
+        <span class="callout-title">GCC and Clang allow <code>void *</code> arithmetic anyway</span>
+        <p>As a non-standard extension, GCC and Clang treat <code>void *</code> arithmetic as if it were on <code>char *</code> (moving by bytes), and by default they don't even warn. Code that relies on it won't compile with other compilers, such as MSVC. Compile with <code>-Wpointer-arith</code> (or <code>-pedantic</code>) to be warned, and convert to <code>unsigned char *</code> when you genuinely want to move byte by byte.</p>
+    </div>
+
+    <h2>Indexing a pointer</h2>
+    <p>One last connection. Because <code>*(p + i)</code> is so common, C gives it a shorter spelling: <code>p[i]</code>. In fact, that's how the language <em>defines</em> the subscript operator: <code>E1[E2]</code> means <code>*((E1) + (E2))</code>. So <code>p[2]</code> works on a pointer just as it does on an array, and it's two elements past wherever <code>p</code> is pointing. The next lesson, Pointers &amp; Arrays, picks up exactly here and shows why <code>a[i]</code> and <code>*(a + i)</code> are the same thing.</p>
+
+    <div class="exercise" data-id="ptrarith-sum-with-pointer">
+        <h3>Sum and maximum with a pointer</h3>
+        <p>Compute the sum and the largest value of <code>a</code> using a pointer that walks the array. <strong>Don't index with square brackets</strong> in your loop: no <code>a[i]</code>, only <code>*p</code>.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                int a[] = {4, 8, 15, 16, 23, 42, 7};
+                int n = sizeof a / sizeof a[0];
+                int *end = &a[0] + n;
+
+                int sum = 0;
+                int max = *(&a[0]);
+                // TODO: walk a pointer p from &a[0] up to end, updating sum and max
+
+                printf("sum = %d\n", sum);
+                printf("max = %d\n", max);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            sum = 115
+            max = 42
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                int a[] = {4, 8, 15, 16, 23, 42, 7};
+                int n = sizeof a / sizeof a[0];
+                int *end = &a[0] + n;
+
+                int sum = 0;
+                int max = *(&a[0]);
+                for (int *p = &a[0]; p != end; p++) {
+                    sum += *p;
+                    if (*p > max) {
+                        max = *p;
+                    }
+                }
+
+                printf("sum = %d\n", sum);
+                printf("max = %d\n", max);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p><code>for (int *p = &amp;a[0]; p != end; p++)</code> visits every element. Inside, <code>*p</code> is the current element: add it to <code>sum</code>, and replace <code>max</code> if it's bigger.</p></details>
+    </div>
+
+    <div class="exercise" data-id="ptrarith-find-index" data-stdin="23\n99\n4">
+        <h3>Find it, then report the index</h3>
+        <p>The program reads target numbers from the input until there are no more. For each one, search <code>a</code> with a pointer. If you find it, print its index using <strong>pointer subtraction</strong> (not a counter): <code>found 23 at index 4</code>. Otherwise print <code>99 not found</code>.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                int a[] = {4, 8, 15, 16, 23, 42};
+                int *end = &a[0] + 6;
+                int target;
+
+                while (scanf("%d", &target) == 1) {
+                    int *p = &a[0];
+                    // TODO: advance p until it reaches end or points at target
+                    // TODO: if p != end, print the index with %td and p - &a[0]
+                }
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            found 23 at index 4
+            99 not found
+            found 4 at index 0
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                int a[] = {4, 8, 15, 16, 23, 42};
+                int *end = &a[0] + 6;
+                int target;
+
+                while (scanf("%d", &target) == 1) {
+                    int *p = &a[0];
+                    while (p != end && *p != target) {
+                        p++;
+                    }
+                    if (p != end) {
+                        printf("found %d at index %td\n", target, p - &a[0]);
+                    } else {
+                        printf("%d not found\n", target);
+                    }
+                }
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p><code>while (p != end &amp;&amp; *p != target) p++;</code> stops either on the target or at <code>end</code>. The order of that condition matters: <code>&amp;&amp;</code> checks <code>p != end</code> first, so <code>*p</code> is never evaluated when <code>p</code> is one past the end. Then <code>p - &amp;a[0]</code> is the index.</p></details>
+    </div>
+
+    <div class="exercise" data-id="ptrarith-strlen-subtraction">
+        <h3>String length by subtraction</h3>
+        <p>For each word, set a <code>char *</code> to its first character, advance it until it points at the <code>'\0'</code>, and print the length as the difference between that pointer and the start. Match the expected output exactly, quotes included.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                char words[3][12] = {"pointer", "", "arithmetic"};
+
+                for (int i = 0; i < 3; i++) {
+                    char *start = &words[i][0];
+                    // TODO: walk another char * to the '\0', then print
+                    //       "\"%s\" has %td chars\n"
+                }
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            "pointer" has 7 chars
+            "" has 0 chars
+            "arithmetic" has 10 chars
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                char words[3][12] = {"pointer", "", "arithmetic"};
+
+                for (int i = 0; i < 3; i++) {
+                    char *start = &words[i][0];
+                    char *p = start;
+                    while (*p != '\0') {
+                        p++;
+                    }
+                    printf("\"%s\" has %td chars\n", words[i], p - start);
+                }
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Copy the pointer (<code>char *p = start;</code>), then <code>while (*p != '\0') p++;</code>. When the loop ends, <code>p</code> points at the terminator, which is exactly <code>length</code> chars after <code>start</code>, so <code>p - start</code> is the length. This is essentially how <code>strlen</code> is implemented.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "<code>p</code> is an <code>int *</code> holding <code>0x1000</code>, and <code>int</code> is 4 bytes. What address does <code>p + 1</code> hold?",
+        "choices": ["<code>0x1001</code>", "<code>0x1004</code>", "<code>0x1008</code>", "<code>0x1010</code>"],
+        "answer": 1, "explain": "Pointer arithmetic counts in elements. One <code>int</code> further on is 4 bytes further: <code>0x1004</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int a[] = {5, 10, 15, 20};\nint *p = &a[1];\nprintf(\"%d\", *(p + 2));",
+        "answer": "20", "explain": "<code>p</code> points at <code>a[1]</code>, so <code>p + 2</code> points at <code>a[3]</code>, which is 20." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int a[] = {1, 5};\nint *p = &a[0];\nint x = *p++;\nprintf(\"%d %d\", x, *p);",
+        "answer": "1 5", "explain": "<code>*p++</code> is <code>*(p++)</code>: it yields the element <code>p</code> pointed to before (1), then moves <code>p</code> to <code>a[1]</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int a[] = {1, 5};\nint *p = &a[0];\n(*p)++;\nprintf(\"%d %d\", a[0], *p);",
+        "answer": "2 2", "explain": "<code>(*p)++</code> increments the element, not the pointer. <code>a[0]</code> becomes 2 and <code>p</code> still points at it." },
+      { "q": "<code>int a[10]; int *p = &amp;a[2]; int *q = &amp;a[7];</code> What is <code>q - p</code>?",
+        "choices": ["20 (the number of bytes)", "It's undefined behaviour", "5", "-5"],
+        "answer": 2, "explain": "Subtracting pointers into the same array gives the number of <em>elements</em> between them, as a <code>ptrdiff_t</code>: 7 − 2 = 5." },
+      { "q": "Which of these is valid for two <code>int *</code> pointers <code>p</code> and <code>q</code> into the same array?",
+        "choices": ["<code>p + q</code>", "<code>p * 2</code>", "<code>p / q</code>", "<code>q - p</code>"],
+        "answer": 3, "explain": "You can subtract two pointers into the same array, and add or subtract an integer to a pointer, but adding, multiplying or dividing pointers is a compile error." },
+      { "q": "For <code>int a[4];</code>, what is true of <code>&amp;a[0] + 4</code>?",
+        "choices": ["It's a valid pointer you may compute and compare, but not dereference", "It's undefined behaviour to even compute it", "It's the same as <code>&amp;a[3]</code>", "Dereferencing it reads 0"],
+        "answer": 0, "explain": "One past the end is a special, valid address: perfect as a loop's stopping point. Reading or writing through it is undefined behaviour." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
 </body>
 </html>

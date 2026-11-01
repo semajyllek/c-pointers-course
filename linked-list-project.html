@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capstone: Linked List · Learn C</title>
+    <meta name="description" content="A guided project: build a singly linked list in C step by step, with push_front, push_back, find, remove (the pointer-to-pointer trick) and freeing.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>Capstone: Linked List</h1>
+    <p class="lead">Time to put it all together. In this project you'll build a <strong>singly linked list</strong> from scratch: a data structure made of heap-allocated nodes chained together by pointers. It uses structs, <code>malloc</code> and <code>free</code>, the <code>-&gt;</code> operator, <code>const</code>, and pointers to pointers, all at once. When you can write one confidently, you really understand pointers.</p>
+
+    <h2>What is a linked list?</h2>
+    <p>An array stores its elements side by side in one block of memory. A linked list instead stores each element in its own small heap block, a <strong>node</strong>, and each node holds a pointer to the next one. The list itself is nothing more than a pointer to the first node, usually called <code>head</code>. The last node's <code>next</code> is <code>NULL</code>, which marks the end.</p>
+    <pre>head ──► [ 1 | ●─]──► [ 2 | ●─]──► [ 3 | NULL ]</pre>
+    <p>Compared with an array:</p>
+    <table>
+        <thead><tr><th></th><th>Array</th><th>Linked list</th></tr></thead>
+        <tbody>
+            <tr><td>Access element <code>i</code></td><td>instant: <code>a[i]</code></td><td>slow: follow <code>i</code> links from the head</td></tr>
+            <tr><td>Insert or remove at the front</td><td>slow: shift every element</td><td>instant: rewire one or two pointers</td></tr>
+            <tr><td>Grow</td><td><code>realloc</code>, which may copy everything</td><td>one <code>malloc</code> per new node; nothing moves</td></tr>
+            <tr><td>Memory overhead</td><td>none</td><td>a pointer per element, plus allocator overhead</td></tr>
+        </tbody>
+    </table>
+    <p>In everyday code, a dynamic array is often faster because its elements are contiguous, which modern CPUs love. But linked lists are everywhere in systems code (operating-system kernels, memory allocators, the buckets of a hash table), and building one is the best pointer workout there is.</p>
+
+    <div class="callout tip">
+        <span class="callout-title">How this project works</span>
+        <p>Each step introduces one operation and ends with an exercise. Every starter already contains working code for the previous steps, so you can go in order or jump to any step. Draw boxes and arrows on paper as you go. Seriously: every experienced C programmer debugs linked lists that way.</p>
+    </div>
+
+    <h2>Step 1: the node</h2>
+    <p>A node holds one value and a pointer to the next node:</p>
+    <script type="text/c" data-static>
+        struct Node {
+            int data;
+            struct Node *next;   // pointer to the next node, or NULL at the end
+        };
+    </script>
+    <p>This is a <strong>self-referential</strong> struct: it contains a pointer to its own type. That's allowed because a pointer has a fixed size (8 bytes on a typical 64-bit machine) no matter what it points to. A struct that contained a <code>struct Node</code> <em>directly</em> would be infinitely large, so the compiler rejects it.</p>
+    <p>We'll create every node with a small helper. Exiting on allocation failure keeps the project code short. A library would return <code>NULL</code> or an error code instead and let the caller decide.</p>
+    <script type="text/c" data-static>
+        struct Node *new_node(int value) {
+            struct Node *n = malloc(sizeof *n);
+            if (n == NULL) {
+                fprintf(stderr, "out of memory\n");
+                exit(EXIT_FAILURE);
+            }
+            n->data = value;
+            n->next = NULL;
+            return n;
+        }
+    </script>
+
+    <h2>Step 2: adding to the front, and printing</h2>
+    <p>Adding a node at the front takes two pointer assignments: point the new node at the current first node, then make <code>head</code> point at the new node. The catch is that <code>head</code> belongs to the <em>caller</em>, and the function has to change it. As you saw in Advanced Pointers, changing the caller's pointer means passing the pointer's address:</p>
+    <script type="text/c" data-static>
+        void push_front(struct Node **head, int value) {
+            struct Node *n = new_node(value);
+            n->next = *head;    // 1. new node points at the old first node
+            *head = n;          // 2. the caller's head points at the new node
+        }
+
+        // called as:
+        push_front(&head, 42);
+    </script>
+    <p>The order of those two lines matters. If you did <code>*head = n;</code> first, the only pointer to the rest of the list would be overwritten, and the whole list would leak. Step through it to watch <code>head</code> on the stack and the nodes on the heap. Each node's <code>next</code> arrow points at the next node:</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            void push_front(struct Node **head, int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) exit(EXIT_FAILURE);
+                n->data = value;
+                n->next = *head;
+                *head = n;
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                push_front(&head, 3);
+                push_front(&head, 2);
+                push_front(&head, 1);
+                for (struct Node *p = head; p != NULL; p = p->next)
+                    printf("%d ", p->data);
+                printf("\n");
+                while (head != NULL) {
+                    struct Node *next = head->next;
+                    free(head);
+                    head = next;
+                }
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {"steps": [
+            {"line": 17, "note": "<code>main</code> starts. Nothing has been allocated yet.", "stack": [{"fn": "main", "vars": []}], "heap": []}, 
+            {"line": 18, "note": "<code>head</code> is the whole list as far as <code>main</code> is concerned: a single pointer on the stack. <code>NULL</code> means the list is empty.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "NULL"}]}], "heap": []}, 
+            {"line": 10, "note": "<code>push_front(&amp;head, 3)</code>: the parameter <code>head</code> holds the <em>address of</em> <code>main</code>'s <code>head</code> (note the type <code>struct Node **</code>). <code>malloc</code> gives us a 16-byte node (4 for <code>data</code>, 4 of padding, 8 for <code>next</code>), uninitialised.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "NULL"}]}, {"fn": "push_front", "vars": [{"name": "head", "type": "struct Node **", "addr": "0x7ffc08", "value": "0x7ffc30", "ptr": "0x7ffc30"}, {"name": "value", "type": "int", "addr": "0x7ffc04", "value": "3"}, {"name": "n", "type": "struct Node *", "addr": "0x7ffc10", "value": "0x5581a0", "ptr": "0x5581a0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "?"}, {"label": "next", "addr": "0x5581a8", "value": "?"}]}]}, 
+            {"line": 12, "note": "<code>n-&gt;data = value;</code> stores 3 in the new node.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "NULL"}]}, {"fn": "push_front", "vars": [{"name": "head", "type": "struct Node **", "addr": "0x7ffc08", "value": "0x7ffc30", "ptr": "0x7ffc30"}, {"name": "value", "type": "int", "addr": "0x7ffc04", "value": "3"}, {"name": "n", "type": "struct Node *", "addr": "0x7ffc10", "value": "0x5581a0", "ptr": "0x5581a0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "?"}]}]}, 
+            {"line": 13, "note": "<code>n-&gt;next = *head;</code> copies the old first node's address into the new node. The list was empty, so that's <code>NULL</code>: this node is also the last one.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "NULL"}]}, {"fn": "push_front", "vars": [{"name": "head", "type": "struct Node **", "addr": "0x7ffc08", "value": "0x7ffc30", "ptr": "0x7ffc30"}, {"name": "value", "type": "int", "addr": "0x7ffc04", "value": "3"}, {"name": "n", "type": "struct Node *", "addr": "0x7ffc10", "value": "0x5581a0", "ptr": "0x5581a0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}]}, 
+            {"line": 14, "note": "<code>*head = n;</code> follows the arrow back to <code>main</code> and makes its <code>head</code> point at the new node. This is why we needed a <code>struct Node **</code>.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"fn": "push_front", "vars": [{"name": "head", "type": "struct Node **", "addr": "0x7ffc08", "value": "0x7ffc30", "ptr": "0x7ffc30"}, {"name": "value", "type": "int", "addr": "0x7ffc04", "value": "3"}, {"name": "n", "type": "struct Node *", "addr": "0x7ffc10", "value": "0x5581a0", "ptr": "0x5581a0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}]}, 
+            {"line": 10, "note": "<code>push_front</code> returned (its frame is gone, the node stays: it's on the heap). Now <code>push_front(&amp;head, 2)</code> allocates a second node.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"fn": "push_front", "vars": [{"name": "head", "type": "struct Node **", "addr": "0x7ffc08", "value": "0x7ffc30", "ptr": "0x7ffc30"}, {"name": "value", "type": "int", "addr": "0x7ffc04", "value": "2"}, {"name": "n", "type": "struct Node *", "addr": "0x7ffc10", "value": "0x5581c0", "ptr": "0x5581c0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "?"}, {"label": "next", "addr": "0x5581c8", "value": "?"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}]}, 
+            {"line": 13, "note": "<code>data</code> becomes 2 and <code>n-&gt;next = *head;</code> points the new node at the current first node, the 3.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"fn": "push_front", "vars": [{"name": "head", "type": "struct Node **", "addr": "0x7ffc08", "value": "0x7ffc30", "ptr": "0x7ffc30"}, {"name": "value", "type": "int", "addr": "0x7ffc04", "value": "2"}, {"name": "n", "type": "struct Node *", "addr": "0x7ffc10", "value": "0x5581c0", "ptr": "0x5581c0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}]}, 
+            {"line": 14, "note": "<code>*head = n;</code>: <code>main</code>'s <code>head</code> now points at the 2, which points at the 3. The order of these two lines matters: if we overwrote <code>*head</code> first, we'd lose the only pointer to the rest of the list.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581c0", "ptr": "0x5581c0"}]}, {"fn": "push_front", "vars": [{"name": "head", "type": "struct Node **", "addr": "0x7ffc08", "value": "0x7ffc30", "ptr": "0x7ffc30"}, {"name": "value", "type": "int", "addr": "0x7ffc04", "value": "2"}, {"name": "n", "type": "struct Node *", "addr": "0x7ffc10", "value": "0x5581c0", "ptr": "0x5581c0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}]}, 
+            {"line": 13, "note": "Third call, <code>push_front(&amp;head, 1)</code>: a new node holding 1, linked in front of the 2.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581c0", "ptr": "0x5581c0"}]}, {"fn": "push_front", "vars": [{"name": "head", "type": "struct Node **", "addr": "0x7ffc08", "value": "0x7ffc30", "ptr": "0x7ffc30"}, {"name": "value", "type": "int", "addr": "0x7ffc04", "value": "1"}, {"name": "n", "type": "struct Node *", "addr": "0x7ffc10", "value": "0x5581e0", "ptr": "0x5581e0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581e0", "value": "1"}, {"label": "next", "addr": "0x5581e8", "value": "0x5581c0", "ptr": "0x5581c0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}]}, 
+            {"line": 14, "note": "<code>*head = n;</code> The list is now <code>1 -&gt; 2 -&gt; 3 -&gt; NULL</code>. Notice the nodes aren't in address order, and don't need to be: the <code>next</code> pointers define the order.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581e0", "ptr": "0x5581e0"}]}, {"fn": "push_front", "vars": [{"name": "head", "type": "struct Node **", "addr": "0x7ffc08", "value": "0x7ffc30", "ptr": "0x7ffc30"}, {"name": "value", "type": "int", "addr": "0x7ffc04", "value": "1"}, {"name": "n", "type": "struct Node *", "addr": "0x7ffc10", "value": "0x5581e0", "ptr": "0x5581e0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581e0", "value": "1"}, {"label": "next", "addr": "0x5581e8", "value": "0x5581c0", "ptr": "0x5581c0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}]}, 
+            {"line": 22, "note": "Back in <code>main</code>. To walk the list we use a separate pointer <code>p</code>, starting at <code>head</code>. We must not move <code>head</code> itself, or we'd lose the start of the list.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581e0", "ptr": "0x5581e0"}, {"name": "p", "type": "struct Node *", "addr": "0x7ffc38", "value": "0x5581e0", "ptr": "0x5581e0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581e0", "value": "1"}, {"label": "next", "addr": "0x5581e8", "value": "0x5581c0", "ptr": "0x5581c0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}]}, 
+            {"line": 23, "note": "Print <code>p-&gt;data</code>, then <code>p = p-&gt;next</code> follows the link...", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581e0", "ptr": "0x5581e0"}, {"name": "p", "type": "struct Node *", "addr": "0x7ffc38", "value": "0x5581e0", "ptr": "0x5581e0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581e0", "value": "1"}, {"label": "next", "addr": "0x5581e8", "value": "0x5581c0", "ptr": "0x5581c0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}], "output": "1 "}, 
+            {"line": 23, "note": "...to the second node.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581e0", "ptr": "0x5581e0"}, {"name": "p", "type": "struct Node *", "addr": "0x7ffc38", "value": "0x5581c0", "ptr": "0x5581c0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581e0", "value": "1"}, {"label": "next", "addr": "0x5581e8", "value": "0x5581c0", "ptr": "0x5581c0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}], "output": "1 2 "}, 
+            {"line": 23, "note": "...and the third. After this, <code>p = p-&gt;next</code> makes <code>p</code> <code>NULL</code> and the loop stops.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581e0", "ptr": "0x5581e0"}, {"name": "p", "type": "struct Node *", "addr": "0x7ffc38", "value": "0x5581a0", "ptr": "0x5581a0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581e0", "value": "1"}, {"label": "next", "addr": "0x5581e8", "value": "0x5581c0", "ptr": "0x5581c0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}], "output": "1 2 3 "}, 
+            {"line": 24, "note": "The loop is over and <code>p</code> has gone out of scope. Now we must free every node.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581e0", "ptr": "0x5581e0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581e0", "value": "1"}, {"label": "next", "addr": "0x5581e8", "value": "0x5581c0", "ptr": "0x5581c0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}], "output": "1 2 3 \n"}, 
+            {"line": 26, "note": "Before freeing the first node, save the address of the one after it. Once a node is freed, reading its <code>next</code> field is a use-after-free bug.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581e0", "ptr": "0x5581e0"}, {"name": "next", "type": "struct Node *", "addr": "0x7ffc40", "value": "0x5581c0", "ptr": "0x5581c0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581e0", "value": "1"}, {"label": "next", "addr": "0x5581e8", "value": "0x5581c0", "ptr": "0x5581c0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}], "output": "1 2 3 \n"}, 
+            {"line": 27, "note": "<code>free(head);</code> releases the first node. <code>head</code> is now dangling, but we're about to overwrite it.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581e0", "ptr": "0x5581e0"}, {"name": "next", "type": "struct Node *", "addr": "0x7ffc40", "value": "0x5581c0", "ptr": "0x5581c0"}]}], "heap": [{"label": "struct Node", "freed": true, "cells": [{"label": "data", "addr": "0x5581e0", "value": "?"}, {"label": "next", "addr": "0x5581e8", "value": "?"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}], "output": "1 2 3 \n"}, 
+            {"line": 28, "note": "<code>head = next;</code> The list is now <code>2 -&gt; 3 -&gt; NULL</code>, and the freed node is no longer ours. At the closing brace, <code>next</code> goes out of scope.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581c0", "ptr": "0x5581c0"}, {"name": "next", "type": "struct Node *", "addr": "0x7ffc40", "value": "0x5581c0", "ptr": "0x5581c0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581c0", "value": "2"}, {"label": "next", "addr": "0x5581c8", "value": "0x5581a0", "ptr": "0x5581a0"}]}, {"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}], "output": "1 2 3 \n"}, 
+            {"line": 28, "note": "The loop does the same for the second node...", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "0x5581a0", "ptr": "0x5581a0"}]}], "heap": [{"label": "struct Node", "cells": [{"label": "data", "addr": "0x5581a0", "value": "3"}, {"label": "next", "addr": "0x5581a8", "value": "NULL"}]}], "output": "1 2 3 \n"}, 
+            {"line": 30, "note": "...and the third, whose <code>next</code> was <code>NULL</code>. So <code>head</code> ends up <code>NULL</code>, the loop stops, and every <code>malloc</code> has had its <code>free</code>.", "stack": [{"fn": "main", "vars": [{"name": "head", "type": "struct Node *", "addr": "0x7ffc30", "value": "NULL"}]}], "heap": [], "output": "1 2 3 \n"}]}
+        </script>
+    </div>
+
+    <h3>The alternative: return the new head</h3>
+    <p>Some people prefer to avoid the double pointer by returning the new head and letting the caller store it:</p>
+    <script type="text/c" data-static>
+        struct Node *push_front(struct Node *head, int value) {
+            struct Node *n = new_node(value);
+            n->next = head;
+            return n;            // the new first node
+        }
+
+        head = push_front(head, 42);   // the caller MUST assign the result
+    </script>
+    <p>That's perfectly good C, and it's how many textbooks do it. Its weakness is that nothing forces the caller to write <code>head = </code>. A bare <code>push_front(head, 42);</code> compiles fine, leaks the node, and leaves the list unchanged. The <code>struct Node **</code> version can't be misused that way, and it scales to operations like "remove" that may or may not change the head. We'll use it throughout.</p>
+
+    <h3>Walking the list</h3>
+    <p>To visit every node, start a separate pointer at <code>head</code> and follow <code>next</code> until you reach <code>NULL</code>. This loop shape is the heart of almost every list function:</p>
+    <script type="text/c" data-static>
+        for (const struct Node *p = head; p != NULL; p = p->next) {
+            /* use p->data */
+        }
+    </script>
+    <p>Printing doesn't modify the list, so <code>print_list</code> should take a <code>const struct Node *</code>. That promises the caller their nodes won't be changed, and lets the compiler hold you to it.</p>
+
+    <div class="exercise" data-id="ll-push-front">
+        <h3>Exercise 1: <code>push_front</code> and <code>print_list</code></h3>
+        <p>Write <code>push_front</code> (taking <code>struct Node **head</code>) and <code>print_list</code>, which prints every value followed by <code> -&gt; </code>, then <code>NULL</code> and a newline. An empty list prints just <code>NULL</code>.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            struct Node *new_node(int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) {
+                    fprintf(stderr, "out of memory\n");
+                    exit(EXIT_FAILURE);
+                }
+                n->data = value;
+                n->next = NULL;
+                return n;
+            }
+
+            void push_front(struct Node **head, int value) {
+                // TODO: create a node, link it in front of *head, update *head
+            }
+
+            void print_list(const struct Node *head) {
+                // TODO: print "1 -> 2 -> 3 -> NULL"
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                print_list(head);
+
+                push_front(&head, 3);
+                push_front(&head, 2);
+                push_front(&head, 1);
+                print_list(head);
+
+                // (we'll free the list properly in step 6)
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            NULL
+            1 -> 2 -> 3 -> NULL
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            struct Node *new_node(int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) {
+                    fprintf(stderr, "out of memory\n");
+                    exit(EXIT_FAILURE);
+                }
+                n->data = value;
+                n->next = NULL;
+                return n;
+            }
+
+            void push_front(struct Node **head, int value) {
+                struct Node *n = new_node(value);
+                n->next = *head;
+                *head = n;
+            }
+
+            void print_list(const struct Node *head) {
+                for (const struct Node *p = head; p != NULL; p = p->next) {
+                    printf("%d -> ", p->data);
+                }
+                printf("NULL\n");
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                print_list(head);
+
+                push_front(&head, 3);
+                push_front(&head, 2);
+                push_front(&head, 1);
+                print_list(head);
+
+                // (we'll free the list properly in step 6)
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p><code>push_front</code> is three lines: <code>struct Node *n = new_node(value); n-&gt;next = *head; *head = n;</code>. For printing, loop <code>for (const struct Node *p = head; p != NULL; p = p-&gt;next)</code>, print <code>"%d -&gt; "</code> for each node, and print <code>"NULL\n"</code> after the loop.</p></details>
+    </div>
+
+    <h2>Step 3: adding to the back</h2>
+    <p>To append, you have to find the last node (the one whose <code>next</code> is <code>NULL</code>) and attach the new node there. There's one special case: if the list is empty, there is no last node, and the new node becomes the head. That's why <code>push_back</code> also needs <code>struct Node **</code>: sometimes it changes the head.</p>
+    <script type="text/c" data-static>
+        // walk to the last node: stop when there is no next one
+        struct Node *last = *head;
+        while (last->next != NULL) {
+            last = last->next;
+        }
+        last->next = n;
+    </script>
+    <p>Look closely at the loop condition: <code>last-&gt;next != NULL</code>, not <code>last != NULL</code>. We want to stop <em>on</em> the last node so we can modify its <code>next</code>. Walking until <code>last</code> itself is <code>NULL</code> would leave us holding nothing. Also note that this dereferences <code>last</code> immediately, which is why the empty list has to be handled first.</p>
+    <div class="callout tip">
+        <span class="callout-title">Cost</span>
+        <p><code>push_back</code> walks the whole list, so appending to a list of a million nodes follows a million pointers. Real implementations often keep a second pointer, <code>tail</code>, to the last node, making appends instant at the cost of keeping <code>tail</code> correct in every other operation.</p>
+    </div>
+
+    <div class="exercise" data-id="ll-push-back">
+        <h3>Exercise 2: <code>push_back</code></h3>
+        <p>Write <code>void push_back(struct Node **head, int value)</code>. Handle the empty list, then walk to the last node and attach the new one.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            struct Node *new_node(int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) {
+                    fprintf(stderr, "out of memory\n");
+                    exit(EXIT_FAILURE);
+                }
+                n->data = value;
+                n->next = NULL;
+                return n;
+            }
+
+            void push_front(struct Node **head, int value) {
+                struct Node *n = new_node(value);
+                n->next = *head;
+                *head = n;
+            }
+
+            void print_list(const struct Node *head) {
+                for (const struct Node *p = head; p != NULL; p = p->next) {
+                    printf("%d -> ", p->data);
+                }
+                printf("NULL\n");
+            }
+
+            void push_back(struct Node **head, int value) {
+                // TODO: if the list is empty, the new node becomes the head.
+                // Otherwise walk to the last node and attach it there.
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                push_back(&head, 1);
+                push_back(&head, 2);
+                push_back(&head, 3);
+                print_list(head);
+
+                push_front(&head, 0);
+                push_back(&head, 4);
+                print_list(head);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            1 -> 2 -> 3 -> NULL
+            0 -> 1 -> 2 -> 3 -> 4 -> NULL
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            struct Node *new_node(int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) {
+                    fprintf(stderr, "out of memory\n");
+                    exit(EXIT_FAILURE);
+                }
+                n->data = value;
+                n->next = NULL;
+                return n;
+            }
+
+            void push_front(struct Node **head, int value) {
+                struct Node *n = new_node(value);
+                n->next = *head;
+                *head = n;
+            }
+
+            void print_list(const struct Node *head) {
+                for (const struct Node *p = head; p != NULL; p = p->next) {
+                    printf("%d -> ", p->data);
+                }
+                printf("NULL\n");
+            }
+
+            void push_back(struct Node **head, int value) {
+                struct Node *n = new_node(value);
+                if (*head == NULL) {
+                    *head = n;
+                    return;
+                }
+                struct Node *last = *head;
+                while (last->next != NULL) {
+                    last = last->next;
+                }
+                last->next = n;
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                push_back(&head, 1);
+                push_back(&head, 2);
+                push_back(&head, 3);
+                print_list(head);
+
+                push_front(&head, 0);
+                push_back(&head, 4);
+                print_list(head);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Create the node first. If <code>*head == NULL</code>, set <code>*head = n</code> and return. Otherwise start <code>struct Node *last = *head;</code>, advance while <code>last-&gt;next != NULL</code>, then set <code>last-&gt;next = n;</code>. <code>new_node</code> already set <code>n-&gt;next</code> to <code>NULL</code>.</p></details>
+    </div>
+
+    <h2>Step 4: length and find</h2>
+    <p>Two read-only queries, both using the walking loop. <code>length</code> counts nodes. <code>find</code> returns a pointer to the first node holding a value, or <code>NULL</code> if there isn't one. Returning a pointer, rather than just "yes" or "no", lets the caller read <em>or update</em> the node it found:</p>
+    <script type="text/c" data-static>
+        size_t length(const struct Node *head);              // doesn't modify: const
+        struct Node *find(struct Node *head, int value);    // returns a modifiable node
+    </script>
+    <p>Why isn't <code>find</code>'s parameter <code>const</code>? Because it returns a non-<code>const</code> pointer into the list. Accepting a <code>const struct Node *</code> and handing back a plain <code>struct Node *</code> would quietly strip the <code>const</code> away. (The C standard library has exactly this wart: <code>strchr</code> takes a <code>const char *</code> and returns a <code>char *</code>.)</p>
+
+    <div class="exercise" data-id="ll-length-find">
+        <h3>Exercise 3: <code>length</code> and <code>find</code></h3>
+        <p>Write <code>size_t length(const struct Node *head)</code> and <code>struct Node *find(struct Node *head, int value)</code>. The provided <code>main</code> uses <code>find</code>'s result to change a value in place.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            struct Node *new_node(int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) {
+                    fprintf(stderr, "out of memory\n");
+                    exit(EXIT_FAILURE);
+                }
+                n->data = value;
+                n->next = NULL;
+                return n;
+            }
+
+            void push_back(struct Node **head, int value) {
+                struct Node *n = new_node(value);
+                if (*head == NULL) {
+                    *head = n;
+                    return;
+                }
+                struct Node *last = *head;
+                while (last->next != NULL) {
+                    last = last->next;
+                }
+                last->next = n;
+            }
+
+            void print_list(const struct Node *head) {
+                for (const struct Node *p = head; p != NULL; p = p->next) {
+                    printf("%d -> ", p->data);
+                }
+                printf("NULL\n");
+            }
+
+            size_t length(const struct Node *head) {
+                // TODO
+                return 0;
+            }
+
+            struct Node *find(struct Node *head, int value) {
+                // TODO: return the first node with this value, or NULL
+                return NULL;
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                printf("empty length: %zu\n", length(head));
+
+                for (int v = 10; v <= 40; v += 10) {
+                    push_back(&head, v);
+                }
+                print_list(head);
+                printf("length: %zu\n", length(head));
+
+                struct Node *hit = find(head, 30);
+                if (hit != NULL) {
+                    printf("found %d\n", hit->data);
+                    hit->data = 33;
+                }
+                print_list(head);
+
+                if (find(head, 99) == NULL) {
+                    printf("99 not found\n");
+                }
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            empty length: 0
+            10 -> 20 -> 30 -> 40 -> NULL
+            length: 4
+            found 30
+            10 -> 20 -> 33 -> 40 -> NULL
+            99 not found
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            struct Node *new_node(int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) {
+                    fprintf(stderr, "out of memory\n");
+                    exit(EXIT_FAILURE);
+                }
+                n->data = value;
+                n->next = NULL;
+                return n;
+            }
+
+            void push_back(struct Node **head, int value) {
+                struct Node *n = new_node(value);
+                if (*head == NULL) {
+                    *head = n;
+                    return;
+                }
+                struct Node *last = *head;
+                while (last->next != NULL) {
+                    last = last->next;
+                }
+                last->next = n;
+            }
+
+            void print_list(const struct Node *head) {
+                for (const struct Node *p = head; p != NULL; p = p->next) {
+                    printf("%d -> ", p->data);
+                }
+                printf("NULL\n");
+            }
+
+            size_t length(const struct Node *head) {
+                size_t count = 0;
+                for (const struct Node *p = head; p != NULL; p = p->next) {
+                    count++;
+                }
+                return count;
+            }
+
+            struct Node *find(struct Node *head, int value) {
+                for (struct Node *p = head; p != NULL; p = p->next) {
+                    if (p->data == value) {
+                        return p;
+                    }
+                }
+                return NULL;
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                printf("empty length: %zu\n", length(head));
+
+                for (int v = 10; v <= 40; v += 10) {
+                    push_back(&head, v);
+                }
+                print_list(head);
+                printf("length: %zu\n", length(head));
+
+                struct Node *hit = find(head, 30);
+                if (hit != NULL) {
+                    printf("found %d\n", hit->data);
+                    hit->data = 33;
+                }
+                print_list(head);
+
+                if (find(head, 99) == NULL) {
+                    printf("99 not found\n");
+                }
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Both are the walking loop from step 2. <code>length</code> increments a counter for each node. <code>find</code> returns <code>p</code> as soon as <code>p-&gt;data == value</code>, and returns <code>NULL</code> after the loop if nothing matched.</p></details>
+    </div>
+
+    <h2>Step 5: removing a value (the pointer-to-pointer trick)</h2>
+    <p>To remove a node you have to make whatever pointed <em>at</em> it point past it instead, and then free it. The difficulty is that "whatever pointed at it" is different depending on where the node is:</p>
+    <ul>
+        <li>For the first node, it's <code>head</code> itself.</li>
+        <li>For any other node, it's the <code>next</code> field of the node before.</li>
+    </ul>
+    <p>The textbook approach tracks a <code>prev</code> pointer and handles the head as a special case:</p>
+    <script type="text/c" data-static>
+        int remove_value(struct Node **head, int value) {
+            struct Node *prev = NULL;
+            struct Node *cur = *head;
+            while (cur != NULL && cur->data != value) {
+                prev = cur;
+                cur = cur->next;
+            }
+            if (cur == NULL) return 0;          // not found
+
+            if (prev == NULL) {
+                *head = cur->next;              // removing the first node
+            } else {
+                prev->next = cur->next;         // removing a later node
+            }
+            free(cur);
+            return 1;
+        }
+    </script>
+    <p>It works, but there are two cases to get right and test. Now notice what the two cases have in common: each one overwrites <em>a <code>struct Node *</code> variable</em>, either <code>head</code> or some <code>prev-&gt;next</code>. So instead of tracking the previous <em>node</em>, track the address of the <em>pointer</em> that leads to the current node. That's a <code>struct Node **</code>, which we'll call <code>link</code>:</p>
+    <script type="text/c" data-static>
+        int remove_value(struct Node **head, int value) {
+            struct Node **link = head;          // the pointer that leads to the current node
+            while (*link != NULL) {
+                struct Node *cur = *link;
+                if (cur->data == value) {
+                    *link = cur->next;          // bypass cur, whoever was pointing at it
+                    free(cur);
+                    return 1;
+                }
+                link = &cur->next;              // move on to the next "pointer to a node"
+            }
+            return 0;
+        }
+    </script>
+    <p>Trace it with the list <code>1 -&gt; 2 -&gt; 3</code>, removing 2:</p>
+    <ol>
+        <li><code>link</code> starts as <code>head</code>, i.e. it points at the caller's <code>head</code> variable. <code>*link</code> is the 1-node. Not a match.</li>
+        <li><code>link = &amp;cur-&gt;next</code>: now <code>link</code> points at the <code>next</code> field <em>inside</em> the 1-node. <code>*link</code> is the 2-node. Match!</li>
+        <li><code>*link = cur-&gt;next</code> writes into the 1-node's <code>next</code> field, so it now points at the 3-node. The 2-node is unlinked, and we free it.</li>
+    </ol>
+    <p>If the match had been the first node, the very same line would have written into the caller's <code>head</code>. There's no special case, because from <code>link</code>'s point of view <code>head</code> and a <code>next</code> field are the same kind of thing: a <code>struct Node *</code> that leads to the rest of the list. Linus Torvalds famously called this version "good taste" in code. The same trick makes <code>push_back</code> shrink to three lines, too: walk <code>link</code> until <code>*link == NULL</code>, then <code>*link = new_node(value);</code>.</p>
+    <div class="callout warn">
+        <span class="callout-title">Precedence check</span>
+        <p><code>&amp;cur-&gt;next</code> means <code>&amp;(cur-&gt;next)</code>, the address of the <code>next</code> field, because <code>-&gt;</code> binds tighter than <code>&amp;</code>. Without the local <code>cur</code> you'd write <code>link = &amp;(*link)-&gt;next;</code>, where the parentheses around <code>*link</code> <em>are</em> required.</p>
+    </div>
+
+    <div class="exercise" data-id="ll-remove">
+        <h3>Exercise 4: <code>remove_value</code></h3>
+        <p>Write <code>int remove_value(struct Node **head, int value)</code>, which removes and frees the <strong>first</strong> node holding <code>value</code> and returns 1, or returns 0 if no node matches. Try the pointer-to-pointer version. The test removes the head, a middle node, the tail, and a value that isn't there.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            struct Node *new_node(int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) {
+                    fprintf(stderr, "out of memory\n");
+                    exit(EXIT_FAILURE);
+                }
+                n->data = value;
+                n->next = NULL;
+                return n;
+            }
+
+            void push_back(struct Node **head, int value) {
+                struct Node *n = new_node(value);
+                if (*head == NULL) {
+                    *head = n;
+                    return;
+                }
+                struct Node *last = *head;
+                while (last->next != NULL) {
+                    last = last->next;
+                }
+                last->next = n;
+            }
+
+            void print_list(const struct Node *head) {
+                for (const struct Node *p = head; p != NULL; p = p->next) {
+                    printf("%d -> ", p->data);
+                }
+                printf("NULL\n");
+            }
+
+            int remove_value(struct Node **head, int value) {
+                // TODO: struct Node **link = head; ...
+                return 0;
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                for (int v = 1; v <= 5; v++) {
+                    push_back(&head, v);
+                }
+                print_list(head);
+
+                int tests[] = { 1, 3, 5, 42 };
+                for (size_t i = 0; i < sizeof tests / sizeof tests[0]; i++) {
+                    int ok = remove_value(&head, tests[i]);
+                    printf("remove %d: %s\n", tests[i], ok ? "removed" : "not found");
+                    print_list(head);
+                }
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            1 -> 2 -> 3 -> 4 -> 5 -> NULL
+            remove 1: removed
+            2 -> 3 -> 4 -> 5 -> NULL
+            remove 3: removed
+            2 -> 4 -> 5 -> NULL
+            remove 5: removed
+            2 -> 4 -> NULL
+            remove 42: not found
+            2 -> 4 -> NULL
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            struct Node *new_node(int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) {
+                    fprintf(stderr, "out of memory\n");
+                    exit(EXIT_FAILURE);
+                }
+                n->data = value;
+                n->next = NULL;
+                return n;
+            }
+
+            void push_back(struct Node **head, int value) {
+                struct Node *n = new_node(value);
+                if (*head == NULL) {
+                    *head = n;
+                    return;
+                }
+                struct Node *last = *head;
+                while (last->next != NULL) {
+                    last = last->next;
+                }
+                last->next = n;
+            }
+
+            void print_list(const struct Node *head) {
+                for (const struct Node *p = head; p != NULL; p = p->next) {
+                    printf("%d -> ", p->data);
+                }
+                printf("NULL\n");
+            }
+
+            int remove_value(struct Node **head, int value) {
+                struct Node **link = head;
+                while (*link != NULL) {
+                    struct Node *cur = *link;
+                    if (cur->data == value) {
+                        *link = cur->next;
+                        free(cur);
+                        return 1;
+                    }
+                    link = &cur->next;
+                }
+                return 0;
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                for (int v = 1; v <= 5; v++) {
+                    push_back(&head, v);
+                }
+                print_list(head);
+
+                int tests[] = { 1, 3, 5, 42 };
+                for (size_t i = 0; i < sizeof tests / sizeof tests[0]; i++) {
+                    int ok = remove_value(&head, tests[i]);
+                    printf("remove %d: %s\n", tests[i], ok ? "removed" : "not found");
+                    print_list(head);
+                }
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Loop <code>while (*link != NULL)</code>. Inside, let <code>struct Node *cur = *link;</code>. On a match: <code>*link = cur-&gt;next; free(cur); return 1;</code>. Otherwise advance with <code>link = &amp;cur-&gt;next;</code>. Return 0 after the loop. Make sure you unlink <em>before</em> freeing, so you never read <code>cur-&gt;next</code> from freed memory.</p></details>
+    </div>
+
+    <h2>Step 6: freeing the whole list</h2>
+    <p>Every node came from <code>malloc</code>, so every node must go back with <code>free</code>. Here's the version almost everyone writes first:</p>
+    <script type="text/c" data-static>
+        // BROKEN: use-after-free
+        for (struct Node *p = head; p != NULL; p = p->next) {
+            free(p);      // p is freed here...
+        }                 // ...then p = p->next reads from the freed node
+    </script>
+    <p>The loop's increment step reads <code>p-&gt;next</code> <em>after</em> <code>p</code> has been freed. That's undefined behaviour. It often "works" in testing, because the freed memory usually still holds the old bytes, and then fails in production when the allocator reuses the block. The fix is the one you saw in the memory visualizer: save the next pointer <em>before</em> you free.</p>
+    <script type="text/c" data-static>
+        struct Node *p = head;
+        while (p != NULL) {
+            struct Node *next = p->next;   // grab it while the node is still valid
+            free(p);
+            p = next;
+        }
+    </script>
+    <p>Finally, after freeing, the caller's <code>head</code> still holds the address of the first (now freed) node: a dangling pointer. If <code>free_list</code> takes a <code>struct Node **</code>, it can set the caller's <code>head</code> to <code>NULL</code>, leaving a valid, empty list behind.</p>
+    <div class="callout tip">
+        <span class="callout-title">Let the tools check your work</span>
+        <p>Compile on your own machine with <code>-fsanitize=address -g</code> and AddressSanitizer will stop the program at the exact line of a use-after-free or out-of-bounds access, and report any leaked nodes when the program exits. Valgrind (<code>valgrind ./app</code>) does similar checking on Linux without recompiling. For pointer-heavy code, these tools are indispensable.</p>
+    </div>
+
+    <div class="exercise" data-id="ll-free">
+        <h3>Exercise 5: <code>free_list</code></h3>
+        <p>Write <code>size_t free_list(struct Node **head)</code>, which frees every node without any use-after-free, sets the caller's <code>head</code> to <code>NULL</code>, and returns the number of nodes freed. Calling it on an empty list must be safe and return 0.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            struct Node *new_node(int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) {
+                    fprintf(stderr, "out of memory\n");
+                    exit(EXIT_FAILURE);
+                }
+                n->data = value;
+                n->next = NULL;
+                return n;
+            }
+
+            void push_front(struct Node **head, int value) {
+                struct Node *n = new_node(value);
+                n->next = *head;
+                *head = n;
+            }
+
+            void print_list(const struct Node *head) {
+                for (const struct Node *p = head; p != NULL; p = p->next) {
+                    printf("%d -> ", p->data);
+                }
+                printf("NULL\n");
+            }
+
+            size_t free_list(struct Node **head) {
+                // TODO: free every node (save next before free!),
+                // set *head to NULL, return how many were freed
+                return 0;
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                for (int v = 4; v >= 1; v--) {
+                    push_front(&head, v * 100);
+                }
+                print_list(head);
+
+                printf("freed %zu nodes\n", free_list(&head));
+                print_list(head);
+                printf("head is %s\n", head == NULL ? "NULL" : "dangling!");
+
+                printf("freed %zu nodes\n", free_list(&head));   // already empty
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            100 -> 200 -> 300 -> 400 -> NULL
+            freed 4 nodes
+            NULL
+            head is NULL
+            freed 0 nodes
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            struct Node {
+                int data;
+                struct Node *next;
+            };
+
+            struct Node *new_node(int value) {
+                struct Node *n = malloc(sizeof *n);
+                if (n == NULL) {
+                    fprintf(stderr, "out of memory\n");
+                    exit(EXIT_FAILURE);
+                }
+                n->data = value;
+                n->next = NULL;
+                return n;
+            }
+
+            void push_front(struct Node **head, int value) {
+                struct Node *n = new_node(value);
+                n->next = *head;
+                *head = n;
+            }
+
+            void print_list(const struct Node *head) {
+                for (const struct Node *p = head; p != NULL; p = p->next) {
+                    printf("%d -> ", p->data);
+                }
+                printf("NULL\n");
+            }
+
+            size_t free_list(struct Node **head) {
+                size_t count = 0;
+                struct Node *p = *head;
+                while (p != NULL) {
+                    struct Node *next = p->next;
+                    free(p);
+                    p = next;
+                    count++;
+                }
+                *head = NULL;
+                return count;
+            }
+
+            int main(void) {
+                struct Node *head = NULL;
+                for (int v = 4; v >= 1; v--) {
+                    push_front(&head, v * 100);
+                }
+                print_list(head);
+
+                printf("freed %zu nodes\n", free_list(&head));
+                print_list(head);
+                printf("head is %s\n", head == NULL ? "NULL" : "dangling!");
+
+                printf("freed %zu nodes\n", free_list(&head));   // already empty
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Start <code>struct Node *p = *head;</code>. In a <code>while (p != NULL)</code> loop: save <code>struct Node *next = p-&gt;next;</code>, then <code>free(p);</code>, then <code>p = next;</code> and count. After the loop, <code>*head = NULL;</code>. An empty list never enters the loop, so it returns 0 naturally.</p></details>
+    </div>
+
+    <h2>Putting it all together</h2>
+    <p>Here's one more operation built from the same ideas: <code>insert_sorted</code> keeps the list in ascending order. It's the pointer-to-pointer walk again: advance <code>link</code> until it points at the first node that's at least as big as the new value (or at the final <code>NULL</code>), then splice the new node in right there. The numbers come from the input box, so try your own:</p>
+    <script type="text/c" data-stdin="42 7 19 3 25 7">
+        #include <stdio.h>
+        #include <stdlib.h>
+
+        struct Node {
+            int data;
+            struct Node *next;
+        };
+
+        struct Node *new_node(int value) {
+            struct Node *n = malloc(sizeof *n);
+            if (n == NULL) {
+                fprintf(stderr, "out of memory\n");
+                exit(EXIT_FAILURE);
+            }
+            n->data = value;
+            n->next = NULL;
+            return n;
+        }
+
+        void insert_sorted(struct Node **head, int value) {
+            struct Node **link = head;
+            while (*link != NULL && (*link)->data < value) {
+                link = &(*link)->next;
+            }
+            struct Node *n = new_node(value);
+            n->next = *link;   // the rest of the list goes after the new node
+            *link = n;         // and whatever led here now leads to the new node
+        }
+
+        void print_list(const struct Node *head) {
+            for (const struct Node *p = head; p != NULL; p = p->next) {
+                printf("%d -> ", p->data);
+            }
+            printf("NULL\n");
+        }
+
+        size_t free_list(struct Node **head) {
+            size_t count = 0;
+            struct Node *p = *head;
+            while (p != NULL) {
+                struct Node *next = p->next;
+                free(p);
+                p = next;
+                count++;
+            }
+            *head = NULL;
+            return count;
+        }
+
+        int main(void) {
+            struct Node *head = NULL;
+            int value;
+            while (scanf("%d", &value) == 1) {
+                insert_sorted(&head, value);
+                print_list(head);
+            }
+            printf("freed %zu nodes\n", free_list(&head));
+            return 0;
+        }
+    </script>
+    <p>Compare <code>n-&gt;next = *link; *link = n;</code> with <code>push_front</code>: they're the same two lines. <code>push_front</code> is just <code>insert</code> at the position where <code>link</code> is <code>head</code>. Once you see that every position in a list is "some <code>struct Node *</code> that leads to the rest", linked lists stop being mysterious.</p>
+
+    <h2>Where to go next</h2>
+    <p>Congratulations: you've gone from <code>printf("hello")</code> to building and tearing down a heap-allocated data structure with pointers to pointers. Here are some ways to keep going.</p>
+    <h3>Extend your list</h3>
+    <ul>
+        <li><strong>Reverse it in place</strong> by walking the list once and flipping every <code>next</code> pointer. It's a classic interview question and a great box-and-arrow exercise.</li>
+        <li><strong>Make it doubly linked</strong>: add a <code>prev</code> pointer so you can walk backwards and remove a node given only a pointer to it.</li>
+        <li><strong>Make it generic</strong>: store a <code>void *</code> in each node, and take a comparison function pointer in <code>find</code> and <code>insert_sorted</code>, just like <code>qsort</code>.</li>
+        <li><strong>Split it into files</strong>: <code>list.h</code> with the declarations, <code>list.c</code> with the definitions, a test program in <code>main.c</code>, and a Makefile.</li>
+    </ul>
+    <h3>Build something bigger</h3>
+    <ul>
+        <li><strong>A dynamic array</strong> ("vector") that grows with <code>realloc</code>, doubling its capacity when full.</li>
+        <li><strong>A hash map</strong> from strings to ints: an array of buckets, where each bucket is a linked list like the one you just wrote. Hash the key, pick a bucket, and search its list.</li>
+        <li><strong>A word-frequency counter</strong> that reads a text file with <code>fgets</code> and counts words using your hash map.</li>
+        <li><strong>A tiny shell or calculator</strong>: read a line, split it into tokens, and dispatch through a table of function pointers.</li>
+    </ul>
+    <h3>Use professional tools</h3>
+    <ul>
+        <li>Compile everything with <code>-Wall -Wextra</code> and, while developing, <code>-fsanitize=address,undefined -g</code>. The sanitizers catch memory errors and undefined behaviour the moment they happen.</li>
+        <li>Learn a debugger: <code>gdb</code> or <code>lldb</code>. Setting a breakpoint and printing <code>*head</code>, then <code>*head-&gt;next</code>, is the real-life version of this course's memory visualizer.</li>
+        <li>Run <code>valgrind</code> on Linux to find leaks and invalid reads in existing binaries.</li>
+    </ul>
+    <h3>Read more</h3>
+    <ul>
+        <li><strong><em>The C Programming Language</em></strong> by Kernighan and Ritchie ("K&amp;R"): short, classic and full of elegant examples. Its style predates modern safety habits, so read it with this course's warnings in mind.</li>
+        <li><strong><em>Modern C</em></strong> by Jens Gustedt: a thorough, up-to-date treatment of C17 and C23 that's freely available from the author.</li>
+        <li><strong><em>Effective C</em></strong> by Robert C. Seacord: a practical guide to writing correct, secure C.</li>
+        <li><strong>cppreference.com</strong> (its C section) for precise documentation of every library function and language rule, and your system's <code>man</code> pages (<code>man 3 fopen</code>).</li>
+    </ul>
+    <p>Most of all: write programs. Pick something small you'd actually use, build it, break it, and fix it with the sanitizers. That's how C becomes second nature.</p>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "Why does <code>struct Node</code> contain <code>struct Node *next</code> rather than <code>struct Node next</code>?",
+        "choices": ["Pointers are faster to copy", "<code>struct</code> members can't have struct types", "A struct can't contain a full copy of itself (it would be infinitely large), but a pointer to its own type has a fixed size", "So that <code>next</code> can be stored on the stack"],
+        "answer": 2, "explain": "A pointer is a fixed size (e.g. 8 bytes) no matter what it points to, so a self-referential struct through a pointer is fine. Embedding a <code>struct Node</code> inside itself would need infinite space." },
+      { "q": "What happens with <code>void push_front(struct Node *head, int v) { struct Node *n = new_node(v); n-&gt;next = head; head = n; }</code>?",
+        "choices": ["The caller's <code>head</code> doesn't change, and the new node is leaked", "It works correctly", "It crashes on an empty list", "The new node is added at the back instead"],
+        "answer": 0, "explain": "<code>head</code> is a copy of the caller's pointer. Assigning to it changes only the copy, so the caller never sees the new node, and nothing points to it once the function returns. Take <code>struct Node **head</code>, or return the new head." },
+      { "q": "Starting from an empty list, what does this print?", "type": "output",
+        "code": "push_front(&head, 1);\npush_front(&head, 2);\npush_back(&head, 3);\npush_front(&head, 4);\nfor (struct Node *p = head; p != NULL; p = p->next)\n    printf(\"%d \", p->data);",
+        "answer": "4 2 1 3", "explain": "After the first two pushes the list is <code>2 1</code>. <code>push_back</code> appends: <code>2 1 3</code>. The last <code>push_front</code> puts 4 first: <code>4 2 1 3</code>." },
+      { "q": "What's wrong with <code>for (p = head; p != NULL; p = p-&gt;next) free(p);</code>?",
+        "choices": ["Nothing; it frees every node", "It frees only the first node", "It never terminates", "After <code>free(p)</code>, the increment <code>p = p-&gt;next</code> reads from freed memory"],
+        "answer": 3, "explain": "That's a use-after-free: undefined behaviour that often appears to work. Save <code>p-&gt;next</code> in a local variable before calling <code>free(p)</code>." },
+      { "q": "The list is <code>5 -&gt; 7 -&gt; 5 -&gt; 9</code>. After <code>remove_value(&amp;head, 5)</code> (which removes the first match), what do <code>length(head)</code> and <code>head-&gt;data</code> print?", "type": "output",
+        "code": "remove_value(&head, 5);\nprintf(\"%zu %d\", length(head), head->data);",
+        "answer": "3 7", "explain": "Only the first 5, the head, is removed, so the list becomes <code>7 -&gt; 5 -&gt; 9</code>: three nodes, starting with 7. Because <code>remove_value</code> takes <code>&amp;head</code>, it can update <code>head</code> itself." },
+      { "q": "In the pointer-to-pointer <code>remove_value</code>, what does <code>link</code> point to before the loop's first iteration?",
+        "choices": ["The first node", "The caller's <code>head</code> variable", "The last node's <code>next</code> field", "<code>NULL</code>"],
+        "answer": 1, "explain": "<code>struct Node **link = head;</code> and the parameter <code>head</code> is <code>&amp;</code> of the caller's head pointer. So <code>*link = ...</code> on the first iteration rewrites the caller's <code>head</code>, and on later iterations it rewrites a <code>next</code> field." },
+      { "q": "Without a tail pointer, how does the cost of <code>push_back</code> grow with the list length <em>n</em>?",
+        "choices": ["It's constant, regardless of <em>n</em>", "It grows with log <em>n</em>", "It grows linearly with <em>n</em>, because it walks every node to find the end", "It grows with <em>n</em>²"],
+        "answer": 2, "explain": "<code>push_back</code> follows every <code>next</code> pointer to find the last node: O(<em>n</em>). <code>push_front</code> is O(1). Keeping a <code>tail</code> pointer makes appends O(1) too." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

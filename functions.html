@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Functions · Learn C</title>
+    <meta name="description" content="Defining and declaring functions, parameters and return values, pass by value, scope, the call stack and recursion.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>Functions</h1>
+    <p class="lead">A function is a named, reusable piece of code: you hand it some values, it does its job, and it can hand one value back. Every C program you've written so far already has one, <code>main</code>. This lesson is about writing your own, and about what really happens in memory when one function calls another.</p>
+
+    <h2>Why bother with functions?</h2>
+    <p>Imagine a program that needs the larger of two numbers in five different places. You could copy the same <code>if</code>/<code>else</code> five times, but then a bug has to be fixed five times, and every reader has to work out five times what that block of code is for. A function fixes all three problems at once:</p>
+    <ul>
+        <li><strong>No repetition.</strong> Write the logic once, use it everywhere.</li>
+        <li><strong>A name.</strong> <code>max(a, b)</code> says what it does; ten lines of comparisons don't.</li>
+        <li><strong>Small, testable pieces.</strong> You can check that <code>max</code> works on its own and then stop thinking about how it works.</li>
+    </ul>
+
+    <h2>Anatomy of a function</h2>
+    <p>Here is a complete program with one function of our own, <code>square</code>, which <code>main</code> calls twice:</p>
+
+    <script type="text/c">
+        #include <stdio.h>
+
+        int square(int n) {
+            int result = n * n;
+            return result;
+        }
+
+        int main(void) {
+            int a = square(4);
+            printf("4 squared is %d\n", a);
+            printf("9 squared is %d\n", square(9));
+            return 0;
+        }
+    </script>
+
+    <p>The first line of the function, <code>int square(int n)</code>, is its <strong>header</strong>, and it has three parts:</p>
+    <table>
+        <thead><tr><th>Part</th><th>Here</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td>Return type</td><td><code>int</code></td><td>the type of value the function hands back</td></tr>
+            <tr><td>Name</td><td><code>square</code></td><td>how you call it</td></tr>
+            <tr><td>Parameter list</td><td><code>(int n)</code></td><td>the inputs, each with a type and a name, separated by commas</td></tr>
+        </tbody>
+    </table>
+    <p>The <strong>body</strong> in braces is the code that runs on each call. <code>return result;</code> ends the function immediately and sends <code>result</code> back to the caller, so <code>square(4)</code> is an expression whose value is <code>16</code>. You can store it in a variable, pass it straight to <code>printf</code>, or use it inside a bigger expression like <code>square(3) + square(4)</code>.</p>
+    <p>Two words worth keeping straight: the variables in the header (<code>n</code>) are <strong>parameters</strong>; the values you pass in a call (<code>4</code>, <code>9</code>) are <strong>arguments</strong>. Each argument is converted to its parameter's type, as if by assignment, so <code>square(2.9)</code> would pass <code>2</code>.</p>
+
+    <h3>Several parameters</h3>
+    <p>Parameters are separated by commas, and each needs its own type, even when they're all the same type. <code>int max(int a, b)</code> is a syntax error.</p>
+    <script type="text/c" data-stdin="12 30">
+        #include <stdio.h>
+
+        int max(int a, int b) {
+            if (a > b) {
+                return a;
+            }
+            return b;
+        }
+
+        int main(void) {
+            int x, y;
+            printf("Enter two numbers: ");
+            if (scanf("%d %d", &x, &y) != 2) {
+                printf("That wasn't two numbers.\n");
+                return 1;
+            }
+            printf("\nThe larger is %d\n", max(x, y));
+            return 0;
+        }
+    </script>
+    <p>Notice that <code>max</code> has two <code>return</code> statements. The first one that runs wins, and nothing after it in the function executes. That's why no <code>else</code> is needed.</p>
+
+    <h2><code>void</code>: no value, no parameters</h2>
+    <p>Some functions do something (print, update a counter) rather than compute a value. Their return type is <code>void</code>, which means "returns nothing". A <code>void</code> function can use a bare <code>return;</code> to leave early, or simply run off the end of its body.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        void print_line(int width) {
+            if (width <= 0) {
+                return;            // nothing to draw: leave early
+            }
+            for (int i = 0; i < width; i++) {
+                printf("-");
+            }
+            printf("\n");
+        }
+
+        void greet(void) {
+            printf("Hello from greet!\n");
+        }
+
+        int main(void) {
+            print_line(20);
+            greet();
+            print_line(20);
+            print_line(0);
+            return 0;
+        }
+    </script>
+    <p><code>void</code> in the <em>parameter list</em>, as in <code>greet(void)</code> and <code>main(void)</code>, means "takes no arguments". You still need the parentheses when calling it: <code>greet();</code>. Writing just <code>greet;</code> names the function without calling it, and the compiler will warn that the statement does nothing.</p>
+
+    <div class="callout tip">
+        <span class="callout-title"><code>f(void)</code> versus <code>f()</code></span>
+        <p>In C17, empty parentheses in a declaration mean "takes some unspecified arguments", an old-style form that turns off argument checking. In C23 they finally mean the same as <code>(void)</code>. Writing <code>(void)</code> is correct under every standard, so it's the habit this course uses.</p>
+    </div>
+
+    <div class="callout warn">
+        <span class="callout-title">Don't fall off the end of a non-void function</span>
+        <p>If a function is declared to return <code>int</code> but control reaches the closing brace without a <code>return</code>, and the caller uses the result, the behaviour is <strong>undefined</strong>: you get whatever garbage was lying around. <code>-Wall</code> warns about this ("control reaches end of non-void function"), so treat that warning as an error. The one exception is <code>main</code>, which returns <code>0</code> if it reaches its closing brace.</p>
+    </div>
+
+    <h2>Declaration vs definition, and why order matters</h2>
+    <p>The C compiler reads your file from top to bottom, once. When it reaches a call like <code>square(4)</code>, it must already know what <code>square</code> is: what it returns, and what parameters it takes. So this program doesn't compile. Press Run to see the error:</p>
+    <script type="text/c" data-expect-error="compile">
+        #include <stdio.h>
+
+        int main(void) {
+            printf("%d\n", square(4));   // square hasn't been seen yet
+            return 0;
+        }
+
+        int square(int n) {
+            return n * n;
+        }
+    </script>
+    <p>You can fix it by moving <code>square</code> above <code>main</code>, but in bigger programs functions call each other in every direction and there may be no order that works. The real fix is a <strong>declaration</strong>, also called a <strong>prototype</strong>: the function header followed by a semicolon instead of a body.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int square(int n);      // declaration (prototype): "this exists"
+
+        int main(void) {
+            printf("%d\n", square(4));
+            return 0;
+        }
+
+        int square(int n) {     // definition: "here is the code"
+            return n * n;
+        }
+    </script>
+    <ul>
+        <li>A <strong>declaration</strong> tells the compiler the function's name, return type and parameter types. That is all it needs to check a call and generate code for it.</li>
+        <li>A <strong>definition</strong> is the declaration plus the body. There must be exactly one.</li>
+    </ul>
+    <p>Parameter names are optional in a prototype (<code>int square(int);</code> is fine), but including them documents what each argument is for. The prototype and definition must agree on types, or the compiler reports a conflict. A common layout is: <code>#include</code>s, then prototypes for every function, then <code>main</code>, then the other definitions. In fact, that's what <code>#include &lt;stdio.h&gt;</code> is doing for you: the file is full of prototypes, including one for <code>printf</code> (it returns an <code>int</code>, the number of characters printed), which is how the compiler can check your <code>printf</code> calls even though you never wrote that function.</p>
+
+    <h2>Pass by value: the function gets a copy</h2>
+    <p>This is the single most important rule about C functions, and it surprises almost everyone. When you call a function, each argument's <em>value</em> is copied into a brand-new parameter variable. The function works on the copy. Whatever it does to that copy, the caller's variable is untouched.</p>
+    <p>Step through this program. Watch the stack: calling <code>add_ten</code> creates a <strong>new frame</strong> with its own <code>n</code> at its own address, and <code>main</code>'s <code>x</code> never changes.</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+
+            void add_ten(int n) {
+                n = n + 10;
+                printf("inside: %d\n", n);
+            }
+
+            int main(void) {
+                int x = 5;
+                add_ten(x);
+                printf("after:  %d\n", x);
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "heap": false,
+          "steps": [
+            { "line": 8, "note": "The program starts in <code>main</code>. The stack gets a <strong>frame</strong> for it: a chunk of memory for its local variables.", "stack": [{ "fn": "main", "vars": [] }] },
+            { "line": 9, "note": "<code>int x = 5;</code> puts 5 in <code>main</code>'s frame.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc2c", "value": "5" }] }] },
+            { "line": 3, "note": "<code>add_ten(x)</code> is called. A new frame is <strong>pushed</strong> on top of <code>main</code>'s. The <em>value</em> of <code>x</code> (5) is copied into the parameter <code>n</code>, which has its own address.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc2c", "value": "5" }] }, { "fn": "add_ten", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffc0c", "value": "5" }] }] },
+            { "line": 4, "note": "<code>n = n + 10;</code> changes <code>n</code>, the copy. <code>x</code>, down in <code>main</code>'s frame, is still 5.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc2c", "value": "5" }] }, { "fn": "add_ten", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffc0c", "value": "15" }] }] },
+            { "line": 5, "note": "Inside the function, <code>n</code> really is 15.", "output": "inside: 15",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc2c", "value": "5" }] }, { "fn": "add_ten", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffc0c", "value": "15" }] }] },
+            { "line": 6, "note": "<code>add_ten</code> returns. Its frame is <strong>popped</strong> and <code>n</code> ceases to exist, taking the 15 with it.", "output": "inside: 15",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc2c", "value": "5" }] }] },
+            { "line": 11, "note": "Back in <code>main</code>, <code>x</code> is exactly what it was before the call.", "output": "inside: 15\nafter:  5",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc2c", "value": "5" }] }] },
+            { "line": 13, "note": "<code>main</code> returns and the stack is empty.", "output": "inside: 15\nafter:  5", "stack": [] }
+          ]
+        }
+        </script>
+    </div>
+
+    <p>Pass by value is usually what you want: a function can't secretly change your variables, so you can understand a call just by looking at what it returns. To get a result out, <strong>return it</strong>:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int add_ten(int n) {
+            return n + 10;
+        }
+
+        int main(void) {
+            int x = 5;
+            x = add_ten(x);     // the caller decides to overwrite x
+            printf("x is now %d\n", x);
+            return 0;
+        }
+    </script>
+
+    <div class="callout tip">
+        <span class="callout-title">Cliffhanger: what if you need to change the caller's variable?</span>
+        <p>A function returns at most one value. So how would you write <code>swap(a, b)</code>, which must change <em>two</em> of the caller's variables? With pass by value alone, you can't. The answer is to pass the variables' <em>addresses</em> instead of their values, which is exactly what pointers are for. You'll learn what an address is in Pointer Basics, and write a working <code>swap</code> in Pointers &amp; Functions.</p>
+    </div>
+
+    <h2>Scope and lifetime</h2>
+    <p>Two questions about every variable: <em>where in the code can I use its name?</em> (its <strong>scope</strong>) and <em>when does its memory exist?</em> (its <strong>lifetime</strong>).</p>
+
+    <h3>Local variables</h3>
+    <p>A variable declared inside a function, including its parameters, is <strong>local</strong>. Its name is only visible from the declaration to the end of the enclosing <code>{ }</code> block, and its memory lives only while that block is running. Each call gets a fresh set, which is why two functions can both have a variable called <code>i</code> or <code>n</code> without any conflict: they're different variables in different frames.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int count_up(int limit) {
+            int total = 0;                  // a different 'total' from main's
+            for (int i = 1; i <= limit; i++) {
+                total += i;
+            }
+            // i is out of scope here: it only existed inside the for loop
+            return total;
+        }
+
+        int main(void) {
+            int total = 100;
+            int sum = count_up(4);
+            printf("main's total is still %d, sum is %d\n", total, sum);
+            return 0;
+        }
+    </script>
+    <p>Local variables are <em>not</em> automatically initialised. <code>int total;</code> holds whatever bytes were left in that piece of memory, so always give a local a value before you read it.</p>
+
+    <h3>Global variables (use sparingly)</h3>
+    <p>A variable declared outside every function is <strong>global</strong>: visible from its declaration to the end of the file, alive for the whole run of the program, and initialised to zero if you don't give it a value.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int calls = 0;      // global: every function below can see it
+
+        void work(void) {
+            calls++;
+        }
+
+        int main(void) {
+            work();
+            work();
+            work();
+            printf("work was called %d times\n", calls);
+            return 0;
+        }
+    </script>
+    <p>That looks convenient, and it's tempting as a way around pass by value. Resist it for most things. Any function can change a global, so when its value is wrong you have to inspect every function to find out who did it, and a function that depends on a global can't be understood or tested on its own. Globals are fine for genuine program-wide constants and the occasional shared setting; for passing data around, use parameters and return values.</p>
+
+    <h3><code>static</code> locals: private memory that persists</h3>
+    <p>Sometimes a function needs to remember something between calls, but nobody else needs to see it. Mark a local variable <code>static</code> and it gets the lifetime of a global (created once, kept for the whole program, zero-initialised by default) with the scope of a local (only this function can name it):</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int next_ticket(void) {
+            static int counter = 0;   // initialised once, before the program starts
+            counter++;
+            return counter;
+        }
+
+        int main(void) {
+            printf("ticket %d\n", next_ticket());
+            printf("ticket %d\n", next_ticket());
+            printf("ticket %d\n", next_ticket());
+            return 0;
+        }
+    </script>
+    <p>The line <code>static int counter = 0;</code> is <em>not</em> re-run on each call. The initialisation happens once, so the counter keeps climbing. Delete the word <code>static</code> and run it again: every call gets a fresh <code>counter</code> set to 0, and every ticket is number 1.</p>
+
+    <h2>The call stack</h2>
+    <p>You've now seen the stack twice in the visualizer. Here is the full picture. Each time a function is called, the program <strong>pushes</strong> a new frame onto the call stack holding that call's parameters, its local variables and the place to return to. When the function returns, its frame is <strong>popped</strong> and the memory is reused by the next call. The function on top is always the one currently running; the ones beneath it are waiting for their calls to finish.</p>
+    <p>That's why local variables vanish when a function returns: their frame is gone. (It's also why, in Pointers &amp; Functions, you'll see that returning the address of a local variable is a serious bug.)</p>
+
+    <h2>Recursion</h2>
+    <p>A function can call itself. That's <strong>recursion</strong>, and it fits problems that contain smaller copies of themselves. The factorial of <em>n</em> is <em>n</em> × (<em>n</em>−1) × … × 1, which you can also say as: <code>factorial(n)</code> is <code>n * factorial(n - 1)</code>, and <code>factorial(1)</code> is 1. Every recursive function needs both halves of that:</p>
+    <ul>
+        <li>A <strong>base case</strong> that answers directly without recursing (<code>n &lt;= 1</code> gives 1).</li>
+        <li>A <strong>recursive case</strong> that calls itself on a <em>smaller</em> problem, so it's guaranteed to reach the base case eventually.</li>
+    </ul>
+    <p>Each recursive call is an ordinary call: it gets its own frame with its own <code>n</code>. Step through and watch three <code>factorial</code> frames stack up, then unwind as each one returns its answer to the one below.</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+
+            int factorial(int n) {
+                if (n <= 1) {
+                    return 1;
+                }
+                return n * factorial(n - 1);
+            }
+
+            int main(void) {
+                int result = factorial(3);
+                printf("3! = %d\n", result);
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "heap": false,
+          "steps": [
+            { "line": 11, "note": "<code>main</code> starts and calls <code>factorial(3)</code>. <code>result</code> has no value yet: it will get one when the call returns.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "?" }] }] },
+            { "line": 4, "note": "A frame for <code>factorial</code> is pushed with <code>n = 3</code>. <code>3 &lt;= 1</code> is false, so this isn't the base case.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "?" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffd1c", "value": "3" }] }] },
+            { "line": 7, "note": "To compute <code>3 * factorial(2)</code> it must first call <code>factorial(2)</code>. The multiplication has to wait.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "?" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffd1c", "value": "3" }] }] },
+            { "line": 4, "note": "A <em>second</em> <code>factorial</code> frame is pushed, with its own <code>n = 2</code> at a different address. Still not the base case.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "?" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffd1c", "value": "3" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffcfc", "value": "2" }] }] },
+            { "line": 7, "note": "<code>2 * factorial(1)</code> needs <code>factorial(1)</code> first.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "?" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffd1c", "value": "3" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffcfc", "value": "2" }] }] },
+            { "line": 4, "note": "A third frame, <code>n = 1</code>. Now <code>1 &lt;= 1</code> is true: we've hit the <strong>base case</strong>. Three <code>factorial</code> calls are active at once, each paused at a different point.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "?" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffd1c", "value": "3" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffcfc", "value": "2" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffcdc", "value": "1" }] }] },
+            { "line": 5, "note": "<code>return 1;</code> The top frame is about to be popped, handing <code>1</code> back to the call that's waiting below it.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "?" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffd1c", "value": "3" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffcfc", "value": "2" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffcdc", "value": "1" }] }] },
+            { "line": 7, "note": "The <code>n = 1</code> frame is gone. The <code>n = 2</code> call resumes exactly where it paused: <code>2 * 1</code> is <code>2</code>, which it returns.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "?" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffd1c", "value": "3" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffcfc", "value": "2" }] }] },
+            { "line": 7, "note": "That frame is popped too. The <code>n = 3</code> call resumes: <code>3 * 2</code> is <code>6</code>, which it returns to <code>main</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "?" }] },
+                        { "fn": "factorial", "vars": [{ "name": "n", "type": "int", "addr": "0x7ffd1c", "value": "3" }] }] },
+            { "line": 11, "note": "All the <code>factorial</code> frames are gone and <code>result</code> finally gets its value: 6.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "6" }] }] },
+            { "line": 12, "note": "Prints the answer.", "output": "3! = 6",
+              "stack": [{ "fn": "main", "vars": [{ "name": "result", "type": "int", "addr": "0x7ffd3c", "value": "6" }] }] },
+            { "line": 14, "note": "<code>main</code> returns; the stack is empty.", "output": "3! = 6", "stack": [] }
+          ]
+        }
+        </script>
+    </div>
+
+    <p>Here's another recursive function to experiment with. <code>countdown</code> prints on the way <em>down</em> (before the recursive call) and on the way back <em>up</em> (after it), so you can see the order frames are pushed and popped:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        void countdown(int n) {
+            if (n == 0) {
+                printf("liftoff!\n");
+                return;                     // base case
+            }
+            printf("down %d\n", n);
+            countdown(n - 1);               // smaller problem
+            printf("up   %d\n", n);         // runs after the inner call returns
+        }
+
+        int main(void) {
+            countdown(3);
+            return 0;
+        }
+    </script>
+
+    <div class="callout danger">
+        <span class="callout-title">A missing base case overflows the stack</span>
+        <p>If a recursive function never reaches its base case (you forgot it, or the recursive call doesn't make the problem smaller), it keeps pushing frames until the stack, typically just a few megabytes, runs out. The program then crashes, usually with a "segmentation fault" or "stack overflow". The same thing can happen with correct code given a huge input, which is one reason simple loops are often preferred in C. Anything you can write recursively you can also write with a loop.</p>
+    </div>
+
+    <h2>Common mistakes</h2>
+    <ul>
+        <li><strong>Expecting a parameter change to stick.</strong> Assigning to a parameter changes only the copy. Return the new value instead.</li>
+        <li><strong>Ignoring the return value.</strong> <code>square(5);</code> on its own line computes 25 and throws it away. Store it or use it.</li>
+        <li><strong>Integer division in a "helper".</strong> <code>int average(int a, int b) { return (a + b) / 2; }</code> truncates. If you want <code>2.5</code>, the return type and the arithmetic both need to be <code>double</code>.</li>
+        <li><strong>Calling before declaring.</strong> Put a prototype at the top of the file.</li>
+        <li><strong>Missing <code>return</code> on some path</strong> of a non-void function. Read your <code>-Wall</code> warnings.</li>
+    </ul>
+
+    <div class="exercise" data-id="functions-max3">
+        <h3>The largest of three</h3>
+        <p>Write a function <code>int max3(int a, int b, int c)</code> that returns the largest of its three arguments. <code>main</code> is already written for you. For an extra challenge, write a two-argument <code>max2</code> first and build <code>max3</code> out of it.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int max3(int a, int b, int c) {
+                // TODO: return the largest of a, b and c
+                return 0;
+            }
+
+            int main(void) {
+                printf("%d\n", max3(3, 9, 4));
+                printf("%d\n", max3(-5, -2, -8));
+                printf("%d\n", max3(7, 7, 1));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            9
+            -2
+            7
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int max2(int a, int b) {
+                if (a > b) {
+                    return a;
+                }
+                return b;
+            }
+
+            int max3(int a, int b, int c) {
+                return max2(max2(a, b), c);
+            }
+
+            int main(void) {
+                printf("%d\n", max3(3, 9, 4));
+                printf("%d\n", max3(-5, -2, -8));
+                printf("%d\n", max3(7, 7, 1));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Keep a variable <code>int best = a;</code>, then replace it with <code>b</code> if <code>b</code> is bigger, and with <code>c</code> if <code>c</code> is bigger. Return <code>best</code>. Make sure the function is defined <em>above</em> <code>main</code> (or add a prototype).</p></details>
+    </div>
+
+    <div class="exercise" data-id="functions-power-prototype">
+        <h3>Power, with a prototype</h3>
+        <p>Write <code>int power(int base, int exp)</code> that returns <code>base</code> raised to <code>exp</code> (assume <code>exp &gt;= 0</code>; anything to the power 0 is 1). Use a loop, not the <code>pow</code> library function. The catch: the definition must go <strong>below</strong> <code>main</code>, so you'll need a prototype above it.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            // TODO: add a prototype for power here
+
+            int main(void) {
+                printf("2^10 = %d\n", power(2, 10));
+                printf("3^4 = %d\n", power(3, 4));
+                printf("5^0 = %d\n", power(5, 0));
+                return 0;
+            }
+
+            // TODO: define power here (header, then a body with a loop)
+        </script>
+        <script type="text/plain" class="expected">
+            2^10 = 1024
+            3^4 = 81
+            5^0 = 1
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int power(int base, int exp);
+
+            int main(void) {
+                printf("2^10 = %d\n", power(2, 10));
+                printf("3^4 = %d\n", power(3, 4));
+                printf("5^0 = %d\n", power(5, 0));
+                return 0;
+            }
+
+            int power(int base, int exp) {
+                int result = 1;
+                for (int i = 0; i < exp; i++) {
+                    result *= base;
+                }
+                return result;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>The prototype is the header plus a semicolon: <code>int power(int base, int exp);</code>. In the definition, start with <code>int result = 1;</code> and multiply it by <code>base</code>, <code>exp</code> times. If <code>exp</code> is 0 the loop never runs and you return 1, which is exactly right.</p></details>
+    </div>
+
+    <div class="exercise" data-id="functions-sum-digits" data-stdin="9875">
+        <h3>Recursive digit sum</h3>
+        <p>Write a <strong>recursive</strong> function <code>int sum_digits(int n)</code> that returns the sum of the decimal digits of a non-negative <code>n</code>. For example, <code>sum_digits(9875)</code> is 9 + 8 + 7 + 5 = 29. <code>main</code> reads the number from the input box and prints the result. No loops allowed in <code>sum_digits</code>!</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int sum_digits(int n) {
+                // base case: a single digit (n < 10) is its own digit sum
+                // recursive case: the last digit (n % 10) plus the digit sum of the rest (n / 10)
+                return 0;
+            }
+
+            int main(void) {
+                int n;
+                if (scanf("%d", &n) != 1) {
+                    return 1;
+                }
+                printf("digit sum of %d is %d\n", n, sum_digits(n));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            digit sum of 9875 is 29
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int sum_digits(int n) {
+                if (n < 10) {
+                    return n;
+                }
+                return n % 10 + sum_digits(n / 10);
+            }
+
+            int main(void) {
+                int n;
+                if (scanf("%d", &n) != 1) {
+                    return 1;
+                }
+                printf("digit sum of %d is %d\n", n, sum_digits(n));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p><code>n % 10</code> is the last digit and <code>n / 10</code> chops it off (integer division). So for 9875: 5 + <code>sum_digits(987)</code>. The recursion stops when only one digit is left: <code>if (n &lt; 10) return n;</code></p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "What does a function prototype such as <code>int area(int w, int h);</code> do?",
+        "choices": ["It defines the function's body", "It tells the compiler the function's name, return type and parameter types so calls can be checked before the definition appears", "It calls the function with default arguments", "It makes the function available to other programs"],
+        "answer": 1, "explain": "A prototype is a declaration without a body. It lets the compiler check calls that appear before (or in a different file from) the definition." },
+      { "q": "What does this print?", "type": "output",
+        "code": "void double_it(int x) {\n    x = x * 2;\n}\n\nint main(void) {\n    int a = 4;\n    double_it(a);\n    printf(\"%d\", a);\n    return 0;\n}",
+        "answer": "4", "explain": "C passes arguments by value. <code>double_it</code> doubles its own copy <code>x</code>; <code>a</code> is untouched. To change <code>a</code>, return the new value and assign it: <code>a = double_it(a);</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int tick(void) {\n    static int n = 0;\n    n = n + 1;\n    return n;\n}\n\nint main(void) {\n    tick();\n    tick();\n    printf(\"%d\", tick());\n    return 0;\n}",
+        "answer": "3", "explain": "A <code>static</code> local is initialised once and keeps its value between calls, so the third call returns 3. Without <code>static</code> it would print 1." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int f(int n) {\n    if (n == 0) {\n        return 0;\n    }\n    return n + f(n - 1);\n}\n\nint main(void) {\n    printf(\"%d\", f(4));\n    return 0;\n}",
+        "answer": "10", "explain": "<code>f(4)</code> = 4 + <code>f(3)</code> = 4 + 3 + <code>f(2)</code> = … = 4 + 3 + 2 + 1 + 0 = 10." },
+      { "q": "A recursive function has no base case. What happens when you call it?",
+        "choices": ["The compiler refuses to compile it", "It returns 0", "It runs once and stops", "It keeps pushing stack frames until the stack runs out and the program crashes"],
+        "answer": 3, "explain": "The compiler generally can't detect this. Every call pushes another frame, and eventually the stack overflows." },
+      { "q": "When does a (non-<code>static</code>) local variable's memory stop existing?",
+        "choices": ["When the block it was declared in finishes, for example when its function returns", "When the program ends", "When you assign it a new value", "Never: C keeps every variable until it's freed"],
+        "answer": 0, "explain": "Locals live in the function's stack frame (more precisely, until their enclosing block ends). When the function returns, the frame is popped and the memory is reused." },
+      { "q": "Which header is correct for a function that takes no arguments and returns nothing?",
+        "choices": ["<code>none report(void)</code>", "<code>void report()</code> is the only correct form", "<code>void report(void)</code>", "<code>report(void)</code>"],
+        "answer": 2, "explain": "<code>void</code> as the return type means it returns nothing; <code>void</code> in the parameter list means it takes no arguments. In C17, empty <code>()</code> means \"unspecified arguments\", which disables argument checking." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

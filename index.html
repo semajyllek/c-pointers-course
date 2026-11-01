@@ -3,27 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Learning Pointers in C</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Learn C</title>
+    <meta name="description" content="A free, interactive C programming course in your browser: run code, solve auto-checked exercises, and step through memory diagrams.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
 </head>
 <body>
-    <header>
-        <h1>Welcome to the Pointers in C Course</h1>
-		<nav>
-			<a href="introduction.html">Introduction</a>
-			<a href="pointer-arithmetic.html">Pointer Arithmetic</a>
-			<a href="pointers-and-arrays.html">Pointers and Arrays</a>
-			<a href="pointers-and-functions.html">Pointers and Functions</a>
-			<a href="dynamic-memory-allocation.html">Dynamic Memory Allocation</a>
-			<a href="advanced-pointers.html">Advanced Pointers</a>
-        </nav>
-    </header>
-    <main>
-        <h2>Select a Module</h2>
-        <p>Click on the links above to start learning about pointers in C.</p>
-    </main>
-    <footer>
-        <p>&copy; 2024 Pointers Course - James Kelly</p>
-    </footer>
+<main>
+    <section class="hero">
+        <h1>Learn C by writing C.</h1>
+        <p class="lead">A free, hands-on course that takes you from <code>printf("hello")</code> to building a linked list on the heap. Every example runs in your browser, every exercise checks itself, and pointers finally make sense because you can <em>watch</em> memory change.</p>
+        <div class="hero-actions">
+            <a id="continue-btn" class="btn btn-primary btn-lg" href="getting-started.html">Start the course →</a>
+            <a class="btn btn-lg" href="playground.html">Open the playground</a>
+        </div>
+        <div id="overall-progress"></div>
+    </section>
+
+    <div class="feature-row">
+        <div class="feature"><strong>▶ Run real C</strong><p>Edit any example and run it with gcc. No setup, no install.</p></div>
+        <div class="feature"><strong>✓ Auto-checked exercises</strong><p>Write code, hit Run, and find out right away whether your output is correct.</p></div>
+        <div class="feature"><strong>⇢ Memory visualizer</strong><p>Step line by line through the stack and heap and see where every pointer points.</p></div>
+        <div class="feature"><strong>● Tracks your progress</strong><p>Quizzes and exercises save in your browser, so you can pick up where you left off.</p></div>
+    </div>
+
+    <div id="module-grid"></div>
+
+    <p class="home-footer-actions"><button id="reset-progress" class="btn btn-ghost btn-sm" type="button">Reset my progress</button></p>
+</main>
+<script src="assets/course.js"></script>
 </body>
 </html>

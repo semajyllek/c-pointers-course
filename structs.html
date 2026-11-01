@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Structs, Enums &amp; Unions · Learn C</title>
+    <meta name="description" content="Grouping data with structs, designated initialisers, typedef, the -> operator, struct layout and padding, enums, and tagged unions.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>Structs, Enums &amp; Unions</h1>
+    <p class="lead">Arrays group many values of the <em>same</em> type. Most real data isn't like that: a student has a name, an ID and a grade; a point has an x and a y. A <strong>struct</strong> bundles related values of different types into one new type you can pass around, copy and point to. Along with its cousins, <strong>enums</strong> and <strong>unions</strong>, it's how C programs model the world.</p>
+
+    <h2>Defining a struct</h2>
+    <p>A struct definition describes a new type: a list of named <strong>members</strong> (also called fields), each with its own type.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        struct Point {
+            int x;
+            int y;
+        };              // <- don't forget this semicolon
+
+        int main(void) {
+            struct Point a;          // a struct Point with uninitialised members
+            a.x = 3;                 // the . operator accesses a member
+            a.y = 4;
+
+            struct Point b = {1, 2};                 // positional: x = 1, y = 2
+            struct Point c = {.y = 9, .x = -1};      // designated: by name, any order
+            struct Point origin = {0};               // every member zero
+
+            printf("a = (%d, %d)\n", a.x, a.y);
+            printf("b = (%d, %d)\n", b.x, b.y);
+            printf("c = (%d, %d)\n", c.x, c.y);
+            printf("origin = (%d, %d)\n", origin.x, origin.y);
+            return 0;
+        }
+    </script>
+    <p>A few things to notice:</p>
+    <ul>
+        <li>The type's name is <code>struct Point</code>, both words. <code>Point</code> on its own is just the <em>tag</em> (we'll fix the verbosity with <code>typedef</code> shortly).</li>
+        <li>Defining the struct doesn't create any variables or use any memory. It's a blueprint. <code>struct Point a;</code> creates an actual object.</li>
+        <li><strong>Designated initialisers</strong> (<code>.x = …</code>), added in C99, are the clearest way to initialise a struct. They don't depend on member order, so they keep working if someone reorders or adds members. Any member you don't mention is set to zero.</li>
+        <li>Like any local variable, a struct with no initialiser has garbage in its members until you assign them.</li>
+    </ul>
+
+    <h2><code>typedef</code>: giving a type a shorter name</h2>
+    <p><code>typedef</code> creates an alias for an existing type. It's often combined with a struct definition so you can write <code>Point</code> instead of <code>struct Point</code>:</p>
+    <script type="text/c" data-static>
+        typedef struct Point {   // the tag "Point" is optional here
+            int x;
+            int y;
+        } Point;                 // Point is now another name for struct Point
+
+        Point p = {.x = 1, .y = 2};
+        struct Point q = p;      // both names refer to the same type
+
+        typedef unsigned long long u64;   // typedef works for any type
+    </script>
+    <p>Both styles are common. The Linux kernel avoids <code>typedef</code> for structs so you can always see that something is a struct; many other projects use it everywhere. Pick one and be consistent. This course writes <code>struct Point</code> in full in most examples so you always know what you're looking at.</p>
+
+    <h2>Structs are values: assignment copies</h2>
+    <p>Unlike arrays, structs behave like ordinary values. Assigning one struct to another copies <em>every member</em>, and passing a struct to a function copies it too. You can also return a struct from a function.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        struct Point {
+            int x;
+            int y;
+        };
+
+        void try_to_move(struct Point p) {      // p is a copy
+            p.x += 100;
+        }
+
+        struct Point midpoint(struct Point a, struct Point b) {
+            struct Point m = {.x = (a.x + b.x) / 2, .y = (a.y + b.y) / 2};
+            return m;                            // returned by value: safe!
+        }
+
+        int main(void) {
+            struct Point a = {.x = 2, .y = 4};
+            struct Point b = a;                  // copies both members
+            b.x = 10;
+            printf("a = (%d, %d), b = (%d, %d)\n", a.x, a.y, b.x, b.y);
+
+            try_to_move(a);
+            printf("after try_to_move: a.x = %d\n", a.x);
+
+            struct Point m = midpoint(a, b);
+            printf("midpoint = (%d, %d)\n", m.x, m.y);
+            return 0;
+        }
+    </script>
+    <p>Returning <code>m</code> is fine, unlike returning a pointer to a local, because the <em>value</em> is copied out to the caller before the frame disappears.</p>
+    <div class="callout warn">
+        <span class="callout-title">You can't compare structs with <code>==</code></span>
+        <p><code>if (a == b)</code> is a compile error for structs. Compare member by member, or write a function like <code>bool point_eq(struct Point a, struct Point b)</code>. (Don't use <code>memcmp</code> for this either: padding bytes, covered below, can differ even when every member matches.)</p>
+    </div>
+    <p>Interestingly, an array <em>inside</em> a struct is copied along with the struct. <code>struct Buf { char text[64]; };</code> can be assigned with <code>=</code>, even though bare arrays can't.</p>
+
+    <h2>Pointers to structs and <code>-&gt;</code></h2>
+    <p>Since passing a struct copies it, a function that needs to <em>modify</em> a struct takes a pointer to it, exactly like <code>swap</code> in Pointers &amp; Functions. Accessing members through a pointer is so common that C has a dedicated operator for it:</p>
+    <table>
+        <thead><tr><th>Expression</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td><code>s.x</code></td><td>member <code>x</code> of the struct <code>s</code></td></tr>
+            <tr><td><code>p-&gt;x</code></td><td>member <code>x</code> of the struct that <code>p</code> points to. Exactly the same as <code>(*p).x</code></td></tr>
+        </tbody>
+    </table>
+    <p>Why not just write <code>*p.x</code>? Because <code>.</code> binds tighter than <code>*</code>, so that means <code>*(p.x)</code>, "dereference the member <code>x</code> of <code>p</code>", which is a compile error since <code>p</code> isn't a struct. The parentheses in <code>(*p).x</code> are required, and <code>-&gt;</code> saves you from writing them.</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+
+            struct Point {
+                int x;
+                int y;
+            };
+
+            int main(void) {
+                struct Point pt = {.x = 2, .y = 5};
+                struct Point *p = &pt;
+                p->x = 10;
+                p->y += 1;
+                printf("(%d, %d)\n", pt.x, pt.y);
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "heap": false,
+          "steps": [
+            { "line": 8, "note": "<code>main</code> starts. The <code>struct Point</code> definition above it created no memory; it's only a description of the type.", "stack": [{ "fn": "main", "vars": [] }] },
+            { "line": 9, "note": "<code>pt</code> is one object made of two ints, laid out one after the other: <code>.x</code> at <code>0x7ffc10</code> and <code>.y</code> at <code>0x7ffc14</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "pt", "type": "struct Point", "cells": [{ "addr": "0x7ffc10", "value": "2", "label": ".x" }, { "addr": "0x7ffc14", "value": "5", "label": ".y" }] }] }] },
+            { "line": 10, "note": "<code>p = &amp;pt</code> stores the address of the whole struct. A struct's address is the same as the address of its first member, so the arrow lands on <code>.x</code>, but the pointer's type, <code>struct Point *</code>, says it points at the entire struct.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "pt", "type": "struct Point", "cells": [{ "addr": "0x7ffc10", "value": "2", "label": ".x" }, { "addr": "0x7ffc14", "value": "5", "label": ".y" }] }, { "name": "p", "type": "struct Point *", "addr": "0x7ffc08", "value": "0x7ffc10", "ptr": "0x7ffc10" }] }] },
+            { "line": 11, "note": "<code>p-&gt;x = 10</code> means <code>(*p).x = 10</code>: follow the arrow to the struct, then take its <code>x</code> member. <code>pt.x</code> becomes 10.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "pt", "type": "struct Point", "cells": [{ "addr": "0x7ffc10", "value": "10", "label": ".x" }, { "addr": "0x7ffc14", "value": "5", "label": ".y" }] }, { "name": "p", "type": "struct Point *", "addr": "0x7ffc08", "value": "0x7ffc10", "ptr": "0x7ffc10" }] }] },
+            { "line": 12, "note": "<code>p-&gt;y += 1</code> reads and writes the <code>y</code> member through the pointer. The compiler knows <code>y</code> sits 4 bytes after the start of the struct, at <code>0x7ffc14</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "pt", "type": "struct Point", "cells": [{ "addr": "0x7ffc10", "value": "10", "label": ".x" }, { "addr": "0x7ffc14", "value": "6", "label": ".y" }] }, { "name": "p", "type": "struct Point *", "addr": "0x7ffc08", "value": "0x7ffc10", "ptr": "0x7ffc10" }] }] },
+            { "line": 13, "note": "Both changes were made to <code>pt</code> itself.", "output": "(10, 6)",
+              "stack": [{ "fn": "main", "vars": [{ "name": "pt", "type": "struct Point", "cells": [{ "addr": "0x7ffc10", "value": "10", "label": ".x" }, { "addr": "0x7ffc14", "value": "6", "label": ".y" }] }, { "name": "p", "type": "struct Point *", "addr": "0x7ffc08", "value": "0x7ffc10", "ptr": "0x7ffc10" }] }] },
+            { "line": 15, "note": "<code>main</code> returns.", "output": "(10, 6)", "stack": [] }
+          ]
+        }
+        </script>
+    </div>
+
+    <p>In practice, <code>-&gt;</code> mostly appears in functions that receive a struct pointer. Use a plain pointer when the function should modify the struct, and <code>const</code> when it only reads it. That second case is the pattern promised in the last lesson: passing one address instead of copying a big struct, with <code>const</code> keeping it safe.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        struct Account {
+            char owner[32];
+            long balance_cents;
+            int transactions;
+        };
+
+        // Modifies the account: takes a plain pointer.
+        void deposit(struct Account *acc, long cents) {
+            acc->balance_cents += cents;
+            acc->transactions++;
+        }
+
+        // Only reads it: takes a pointer to const (no copy, no modification).
+        void print_account(const struct Account *acc) {
+            printf("%s: $%ld.%02ld after %d transaction(s)\n",
+                   acc->owner, acc->balance_cents / 100, acc->balance_cents % 100,
+                   acc->transactions);
+        }
+
+        int main(void) {
+            struct Account acc = {.owner = "Grace", .balance_cents = 1000};
+            deposit(&acc, 2550);
+            deposit(&acc, 199);
+            print_account(&acc);
+            return 0;
+        }
+    </script>
+
+    <h2>Arrays of structs</h2>
+    <p>Structs and arrays combine naturally. An array of structs is a table: each element is a row, each member a column. <code>people[i].age</code> reads left to right: element <code>i</code>, then its <code>age</code>.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        struct Item {
+            const char *name;
+            int quantity;
+            double price;
+        };
+
+        int main(void) {
+            struct Item cart[] = {
+                {.name = "apples",  .quantity = 6, .price = 0.45},
+                {.name = "bread",   .quantity = 1, .price = 2.80},
+                {.name = "coffee",  .quantity = 2, .price = 7.25},
+            };
+            int n = sizeof cart / sizeof cart[0];
+
+            double total = 0;
+            for (int i = 0; i < n; i++) {
+                double line = cart[i].quantity * cart[i].price;
+                printf("%-8s %2d x %5.2f = %6.2f\n", cart[i].name, cart[i].quantity, cart[i].price, line);
+                total += line;
+            }
+            printf("total: %.2f\n", total);
+
+            // A pointer walking an array of structs moves one whole struct at a time
+            for (const struct Item *it = cart; it < cart + n; it++) {
+                if (it->quantity > 1) {
+                    printf("multiple %s\n", it->name);
+                }
+            }
+            return 0;
+        }
+    </script>
+    <p>The second loop shows pointer arithmetic from earlier lessons at work: <code>it++</code> moves forward by <code>sizeof(struct Item)</code> bytes, landing exactly on the next element.</p>
+
+    <h2>Nested structs</h2>
+    <p>A struct member can itself be a struct. Chain the operators to reach inside:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        struct Point {
+            int x;
+            int y;
+        };
+
+        struct Rect {
+            struct Point top_left;
+            int width;
+            int height;
+        };
+
+        int main(void) {
+            struct Rect r = {
+                .top_left = {.x = 5, .y = 10},
+                .width = 30,
+                .height = 20,
+            };
+            struct Rect *rp = &r;
+
+            r.top_left.x = 7;          // struct . member . member
+            rp->top_left.y = 12;       // pointer -> member, then . on the inner struct
+
+            printf("rect at (%d, %d), %d x %d, area %d\n",
+                   r.top_left.x, r.top_left.y, rp->width, rp->height, rp->width * rp->height);
+            return 0;
+        }
+    </script>
+    <p>The rule: use <code>-&gt;</code> when the thing on the left is a <em>pointer</em> to a struct, and <code>.</code> when it's a struct. <code>rp-&gt;top_left</code> is a <code>struct Point</code> (not a pointer), so the next step is <code>.y</code>.</p>
+
+    <h2>Memory layout and padding</h2>
+    <p>Members are stored in the order you declare them, but not necessarily packed tightly. Most CPUs access an <code>int</code> fastest (and some only at all) when its address is a multiple of 4, its <strong>alignment</strong>. To keep each member aligned, the compiler may insert unused <strong>padding</strong> bytes between members and at the end.</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stddef.h>   // offsetof
+
+        struct Loose {
+            char a;     // 1 byte
+            int  b;     // 4 bytes, wants a 4-aligned offset
+            char c;     // 1 byte
+        };
+
+        struct Tight {
+            int  b;
+            char a;
+            char c;
+        };
+
+        int main(void) {
+            printf("sizeof(struct Loose) = %zu\n", sizeof(struct Loose));
+            printf("  offsets: a=%zu b=%zu c=%zu\n",
+                   offsetof(struct Loose, a), offsetof(struct Loose, b), offsetof(struct Loose, c));
+            printf("sizeof(struct Tight) = %zu\n", sizeof(struct Tight));
+            printf("  offsets: b=%zu a=%zu c=%zu\n",
+                   offsetof(struct Tight, b), offsetof(struct Tight, a), offsetof(struct Tight, c));
+            return 0;
+        }
+    </script>
+    <p>On typical x86-64 and ARM systems, <code>struct Loose</code> is <strong>12 bytes</strong> even though its members only total 6: three bytes of padding after <code>a</code> so that <code>b</code> starts at offset 4, and three more at the end so that in an <em>array</em> of these structs, every element's <code>b</code> stays aligned. Reordering the members gives <code>struct Tight</code>, typically 8 bytes.</p>
+    <p>The exact amount of padding is <strong>implementation-defined</strong>: the C standard only promises that members appear in declaration order, the first member is at offset 0, and there's no padding <em>before</em> the first member. So:</p>
+    <ul>
+        <li>Never hard-code a struct's size. Always use <code>sizeof</code>.</li>
+        <li>When memory matters (millions of structs), ordering members from largest to smallest alignment usually minimises padding.</li>
+        <li>Don't write a struct's raw bytes to a file or network and expect another compiler or machine to read them back the same way. You'll see better approaches in File I/O.</li>
+    </ul>
+
+    <h2>Structs on the heap</h2>
+    <p>You can <code>malloc</code> a struct just like an array, and the same <code>sizeof *p</code> idiom keeps it correct. Heap-allocated structs are the foundation of every linked data structure:</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <string.h>
+
+        struct Player {
+            char name[20];
+            int score;
+        };
+
+        struct Player *new_player(const char *name) {
+            struct Player *p = malloc(sizeof *p);    // one struct
+            if (p == NULL) {
+                return NULL;
+            }
+            snprintf(p->name, sizeof p->name, "%s", name);   // copies safely, truncating if too long
+            p->score = 0;
+            return p;                                 // caller must free
+        }
+
+        int main(void) {
+            struct Player *p = new_player("Linus");
+            if (p == NULL) {
+                return 1;
+            }
+            p->score += 50;
+            p->score *= 2;
+            printf("%s has %d points\n", p->name, p->score);
+            free(p);
+            return 0;
+        }
+    </script>
+    <p>A struct can even contain a pointer to its own type: <code>struct Node { int value; struct Node *next; };</code>. That's a linked list node, and it's what you'll build in the capstone project.</p>
+
+    <h2>Enums: named integer constants</h2>
+    <p>An <strong>enum</strong> defines a set of named integer constants. It's the right tool whenever a value is "one of a fixed list of options": a direction, a state, a colour, a kind of token.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        enum Direction { NORTH, EAST, SOUTH, WEST };   // 0, 1, 2, 3
+
+        enum HttpStatus { OK = 200, NOT_FOUND = 404, SERVER_ERROR = 500 };
+
+        const char *direction_name(enum Direction d) {
+            switch (d) {
+                case NORTH: return "north";
+                case EAST:  return "east";
+                case SOUTH: return "south";
+                case WEST:  return "west";
+            }
+            return "?";
+        }
+
+        enum Direction turn_right(enum Direction d) {
+            return (d + 1) % 4;
+        }
+
+        int main(void) {
+            enum Direction facing = NORTH;
+            for (int i = 0; i < 5; i++) {
+                printf("facing %s (%d)\n", direction_name(facing), facing);
+                facing = turn_right(facing);
+            }
+            printf("NOT_FOUND = %d\n", NOT_FOUND);
+            return 0;
+        }
+    </script>
+    <ul>
+        <li>By default the first constant is 0 and each one after is one more than the previous. You can assign explicit values, and any constant without one continues counting from the previous: <code>enum { A = 5, B, C }</code> gives B = 6, C = 7.</li>
+        <li>Enum constants are just <code>int</code>s, so you can print them with <code>%d</code> and do arithmetic on them. C does <em>not</em> stop you from assigning any integer to an enum variable; it's a convenience and documentation tool, not a strict type.</li>
+        <li>Enums pair beautifully with <code>switch</code>. With <code>-Wall</code>, if you switch over an enum and forget one of its constants (and have no <code>default</code>), the compiler warns. Add a new direction later and it points you to every switch that needs updating.</li>
+    </ul>
+    <div class="callout tip">
+        <span class="callout-title">Why not just use #define or magic numbers?</span>
+        <p><code>if (state == 2)</code> tells the reader nothing; <code>if (state == STATE_RUNNING)</code> tells them everything. Enums give you names like <code>#define</code> does, but they also group the options under one type, follow normal scoping rules, show up by name in debuggers, and enable those switch warnings.</p>
+    </div>
+
+    <h2>Unions: one space, several interpretations</h2>
+    <p>A <strong>union</strong> looks like a struct, but all its members share the <em>same</em> memory, starting at the same address. It's only as big as its largest member (plus any padding), and only one member holds a meaningful value at a time: the one you wrote last.</p>
+    <script type="text/c" data-static>
+        union Number {
+            int i;
+            double d;
+        };   // sizeof(union Number) is typically 8: room for the double, shared with the int
+
+        union Number n;
+        n.i = 42;      // now n holds an int
+        n.d = 3.5;     // now it holds a double; the 42 has been overwritten
+    </script>
+    <p>Reading a member other than the one last written reinterprets the raw bytes as the other type, which is rarely what you want. So a union on its own is risky: nothing records which member is currently valid. The standard solution is a <strong>tagged union</strong>: wrap the union in a struct together with an enum that says which member is in use.</p>
+
+    <script type="text/c">
+        #include <stdio.h>
+
+        enum ShapeKind { CIRCLE, RECTANGLE, TRIANGLE };
+
+        struct Shape {
+            enum ShapeKind kind;          // the tag: which union member is valid
+            union {
+                struct { double radius; } circle;
+                struct { double w, h; } rect;
+                struct { double base, height; } tri;
+            };                            // anonymous union (C11): access s.circle directly
+        };
+
+        double area(const struct Shape *s) {
+            switch (s->kind) {
+                case CIRCLE:    return 3.14159265 * s->circle.radius * s->circle.radius;
+                case RECTANGLE: return s->rect.w * s->rect.h;
+                case TRIANGLE:  return 0.5 * s->tri.base * s->tri.height;
+            }
+            return 0.0;
+        }
+
+        int main(void) {
+            struct Shape shapes[] = {
+                {.kind = CIRCLE,    .circle = {.radius = 1.0}},
+                {.kind = RECTANGLE, .rect = {.w = 3.0, .h = 4.0}},
+                {.kind = TRIANGLE,  .tri = {.base = 6.0, .height = 2.5}},
+            };
+            for (int i = 0; i < 3; i++) {
+                printf("shape %d: area %.2f\n", i, area(&shapes[i]));
+            }
+            printf("sizeof(struct Shape) = %zu\n", sizeof(struct Shape));
+            return 0;
+        }
+    </script>
+    <p>Each shape stores only the data its kind needs, all in the same bytes, and the <code>kind</code> tag tells <code>area</code> how to read them. (With 8-byte doubles that's typically 24 bytes per shape: 4 for the tag, 4 of padding, and 16 for the largest union member.) Tagged unions are how C programs represent things like JSON values, tokens in a compiler, or messages in a protocol. Always set the tag whenever you set the union, and always check the tag before you read.</p>
+
+    <h2>Exercises</h2>
+
+    <div class="exercise" data-id="st-scale-rect">
+        <h3>Scale a rectangle in place</h3>
+        <p>Write <code>scale</code>, which multiplies a rectangle's <code>width</code> and <code>height</code> by <code>factor</code> through the pointer. Also write <code>area</code>, which takes a pointer to a <em>const</em> rectangle and returns its area. The rectangle's position (<code>top_left</code>) must not change.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            struct Point {
+                int x;
+                int y;
+            };
+
+            struct Rect {
+                struct Point top_left;
+                int width;
+                int height;
+            };
+
+            void scale(struct Rect *r, int factor) {
+                // TODO
+            }
+
+            int area(const struct Rect *r) {
+                // TODO
+                return 0;
+            }
+
+            int main(void) {
+                struct Rect r = {.top_left = {.x = 1, .y = 2}, .width = 3, .height = 5};
+                printf("area %d\n", area(&r));
+                scale(&r, 3);
+                printf("at (%d, %d) size %dx%d area %d\n",
+                       r.top_left.x, r.top_left.y, r.width, r.height, area(&r));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            area 15
+            at (1, 2) size 9x15 area 135
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            struct Point {
+                int x;
+                int y;
+            };
+
+            struct Rect {
+                struct Point top_left;
+                int width;
+                int height;
+            };
+
+            void scale(struct Rect *r, int factor) {
+                r->width *= factor;
+                r->height *= factor;
+            }
+
+            int area(const struct Rect *r) {
+                return r->width * r->height;
+            }
+
+            int main(void) {
+                struct Rect r = {.top_left = {.x = 1, .y = 2}, .width = 3, .height = 5};
+                printf("area %d\n", area(&r));
+                scale(&r, 3);
+                printf("at (%d, %d) size %dx%d area %d\n",
+                       r.top_left.x, r.top_left.y, r.width, r.height, area(&r));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p><code>r</code> is a pointer, so use <code>-&gt;</code>: <code>r-&gt;width *= factor;</code>. <code>area</code> is just <code>return r-&gt;width * r-&gt;height;</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="st-top-student">
+        <h3>Top of the class</h3>
+        <p>Write <code>best_student</code>, which returns a pointer to the student with the highest grade (if there's a tie, the first one). Then print that student's name and grade, and the class average to one decimal place.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            struct Student {
+                const char *name;
+                int grade;
+            };
+
+            const struct Student *best_student(const struct Student *s, int n) {
+                // TODO
+                return s;
+            }
+
+            int main(void) {
+                struct Student class_list[] = {
+                    {.name = "Amara", .grade = 81},
+                    {.name = "Bo",    .grade = 94},
+                    {.name = "Chen",  .grade = 77},
+                    {.name = "Dana",  .grade = 94},
+                    {.name = "Eli",   .grade = 69},
+                };
+                int n = sizeof class_list / sizeof class_list[0];
+
+                const struct Student *top = best_student(class_list, n);
+                printf("top: %s with %d\n", top->name, top->grade);
+
+                // TODO: compute and print the average, e.g. "average: 83.0"
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            top: Bo with 94
+            average: 83.0
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            struct Student {
+                const char *name;
+                int grade;
+            };
+
+            const struct Student *best_student(const struct Student *s, int n) {
+                const struct Student *best = &s[0];
+                for (int i = 1; i < n; i++) {
+                    if (s[i].grade > best->grade) {
+                        best = &s[i];
+                    }
+                }
+                return best;
+            }
+
+            int main(void) {
+                struct Student class_list[] = {
+                    {.name = "Amara", .grade = 81},
+                    {.name = "Bo",    .grade = 94},
+                    {.name = "Chen",  .grade = 77},
+                    {.name = "Dana",  .grade = 94},
+                    {.name = "Eli",   .grade = 69},
+                };
+                int n = sizeof class_list / sizeof class_list[0];
+
+                const struct Student *top = best_student(class_list, n);
+                printf("top: %s with %d\n", top->name, top->grade);
+
+                int total = 0;
+                for (int i = 0; i < n; i++) {
+                    total += class_list[i].grade;
+                }
+                printf("average: %.1f\n", (double)total / n);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Start with <code>best = &amp;s[0]</code> and loop from 1, replacing <code>best</code> only when <code>s[i].grade &gt; best-&gt;grade</code> (strictly greater keeps the first of a tie). For the average, sum into an <code>int</code> and print <code>(double)total / n</code> with <code>%.1f</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="st-traffic-light">
+        <h3>Traffic light state machine</h3>
+        <p>Using the <code>enum Light</code> below, write <code>next_light</code> (RED goes to GREEN, GREEN to YELLOW, YELLOW to RED) and <code>light_name</code> (returns <code>"RED"</code>, <code>"GREEN"</code> or <code>"YELLOW"</code>). Use a <code>switch</code> in both. <code>main</code> prints 7 steps starting from RED, with each light's duration.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            enum Light { RED, GREEN, YELLOW };
+
+            enum Light next_light(enum Light l) {
+                // TODO
+                return l;
+            }
+
+            const char *light_name(enum Light l) {
+                // TODO
+                return "?";
+            }
+
+            int seconds(enum Light l) {
+                switch (l) {
+                    case RED:    return 30;
+                    case GREEN:  return 25;
+                    case YELLOW: return 5;
+                }
+                return 0;
+            }
+
+            int main(void) {
+                enum Light l = RED;
+                for (int i = 0; i < 7; i++) {
+                    printf("%s %ds\n", light_name(l), seconds(l));
+                    l = next_light(l);
+                }
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            RED 30s
+            GREEN 25s
+            YELLOW 5s
+            RED 30s
+            GREEN 25s
+            YELLOW 5s
+            RED 30s
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            enum Light { RED, GREEN, YELLOW };
+
+            enum Light next_light(enum Light l) {
+                switch (l) {
+                    case RED:    return GREEN;
+                    case GREEN:  return YELLOW;
+                    case YELLOW: return RED;
+                }
+                return RED;
+            }
+
+            const char *light_name(enum Light l) {
+                switch (l) {
+                    case RED:    return "RED";
+                    case GREEN:  return "GREEN";
+                    case YELLOW: return "YELLOW";
+                }
+                return "?";
+            }
+
+            int seconds(enum Light l) {
+                switch (l) {
+                    case RED:    return 30;
+                    case GREEN:  return 25;
+                    case YELLOW: return 5;
+                }
+                return 0;
+            }
+
+            int main(void) {
+                enum Light l = RED;
+                for (int i = 0; i < 7; i++) {
+                    printf("%s %ds\n", light_name(l), seconds(l));
+                    l = next_light(l);
+                }
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Follow the shape of <code>seconds</code>: one <code>case</code> per enum constant, each returning straight away. The <code>return</code> after the <code>switch</code> is only there to satisfy the compiler in case <code>l</code> holds some other integer.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "What does this print?", "type": "output",
+        "code": "struct P { int x; int y; };\nstruct P a = {.x = 1, .y = 2};\nstruct P b = a;\nb.y = 50;\nprintf(\"%d %d\", a.y, b.y);",
+        "answer": "2 50", "explain": "Struct assignment copies every member. <code>b</code> is an independent copy, so changing <code>b.y</code> leaves <code>a.y</code> alone." },
+      { "q": "If <code>p</code> is a <code>struct Point *</code>, which expression is the same as <code>p-&gt;x</code>?",
+        "choices": ["<code>*p.x</code>", "<code>&amp;p.x</code>", "<code>p.x</code>", "<code>(*p).x</code>"],
+        "answer": 3, "explain": "<code>-&gt;</code> dereferences and then selects the member. <code>*p.x</code> parses as <code>*(p.x)</code> because <code>.</code> binds tighter than <code>*</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "struct C { int n; };\n\nvoid inc_val(struct C c) { c.n++; }\nvoid inc_ptr(struct C *c) { c->n++; }\n\nint main(void) {\n    struct C c = {.n = 0};\n    inc_val(c);\n    inc_ptr(&c);\n    inc_ptr(&c);\n    printf(\"%d\", c.n);\n    return 0;\n}",
+        "answer": "2", "explain": "<code>inc_val</code> increments a copy, so it has no effect. Each <code>inc_ptr</code> modifies the original through the pointer." },
+      { "q": "What does this print?", "type": "output",
+        "code": "enum Level { LOW = 1, MEDIUM, HIGH = 10, MAX };\nprintf(\"%d %d\", MEDIUM, MAX);",
+        "answer": "2 11", "explain": "A constant without an explicit value is one more than the previous: <code>MEDIUM</code> follows <code>LOW = 1</code>, and <code>MAX</code> follows <code>HIGH = 10</code>." },
+      { "q": "<code>struct S { char a; int b; char c; };</code> has members totalling 6 bytes, but <code>sizeof(struct S)</code> is 12 on a typical system. Why?",
+        "choices": ["The compiler adds padding so <code>b</code> (and <code>b</code> in each array element) is suitably aligned", "Every member is rounded up to 4 bytes by the C standard", "<code>sizeof</code> includes a hidden pointer to the struct's type", "<code>char</code> is 4 bytes inside a struct"],
+        "answer": 0, "explain": "Padding after <code>a</code> aligns <code>b</code> to a 4-byte boundary, and trailing padding keeps array elements aligned. The amount is implementation-defined, which is why you always use <code>sizeof</code>." },
+      { "q": "Given <code>struct Rect *rp</code> where <code>struct Rect</code> has a member <code>struct Point top_left</code>, how do you get the <code>x</code> of the top-left corner?",
+        "choices": ["<code>rp.top_left.x</code>", "<code>rp-&gt;top_left.x</code>", "<code>rp-&gt;top_left-&gt;x</code>", "<code>rp.top_left-&gt;x</code>"],
+        "answer": 1, "explain": "<code>rp</code> is a pointer, so <code>-&gt;</code> gets <code>top_left</code>. That's a struct (not a pointer), so <code>.x</code> gets its member." },
+      { "q": "What is the main purpose of the <code>kind</code> field in a tagged union like <code>struct Shape { enum ShapeKind kind; union { … }; };</code>?",
+        "choices": ["It makes the union larger so all members fit", "It's required by the compiler for any union", "It records which union member currently holds valid data", "It stores the size of the union"],
+        "answer": 2, "explain": "All union members share the same bytes, and only the one last written is meaningful. The tag records which one that is, so code can check it before reading." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

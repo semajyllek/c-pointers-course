@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arrays · Learn C</title>
+    <meta name="description" content="Declaring and initialising arrays, indexing, looping with sizeof, bounds, passing arrays to functions and 2D arrays.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>Arrays</h1>
+    <p class="lead">An array is a fixed number of values of the same type, stored one after another in memory and reached by number. Once you have arrays and loops together, you can process ten values or ten thousand with the same few lines of code.</p>
+
+    <h2>Why arrays?</h2>
+    <p>Say you want to store five test scores. With what you know so far, that means five variables: <code>score1</code>, <code>score2</code> and so on. Averaging them means typing every name, and if there are suddenly fifty scores you have to rewrite everything. An array gives the whole collection one name and lets you pick out an element with a number, and that number can be a variable, which is what makes loops possible:</p>
+
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int scores[5] = {72, 88, 95, 61, 79};
+
+            int total = 0;
+            for (int i = 0; i < 5; i++) {
+                total += scores[i];
+            }
+            printf("average: %.1f\n", total / 5.0);
+            return 0;
+        }
+    </script>
+
+    <h2>Declaring and initialising</h2>
+    <p>A declaration gives the element type, the name and, in square brackets, the number of elements:</p>
+    <script type="text/c" data-static>
+        int    scores[5];     // 5 ints
+        double prices[100];   // 100 doubles
+        char   letters[26];   // 26 chars
+    </script>
+    <p>The size is fixed when the array is created and can never change. For an ordinary array it should be a constant the compiler can see, like <code>5</code>. (C also has "variable-length arrays" whose size comes from a variable, but they're an optional feature since C11 and risky for large sizes, so this course avoids them.)</p>
+
+    <h3>Initialiser lists</h3>
+    <p>Give an array starting values with a brace-enclosed list. The rules are worth learning precisely, because they're used constantly:</p>
+    <table>
+        <thead><tr><th>Declaration</th><th>Contents</th><th>Why</th></tr></thead>
+        <tbody>
+            <tr><td><code>int a[5] = {1, 2, 3, 4, 5};</code></td><td>1 2 3 4 5</td><td>one value per element</td></tr>
+            <tr><td><code>int a[5] = {1, 2};</code></td><td>1 2 0 0 0</td><td>if you initialise <em>any</em> elements, the rest are set to zero</td></tr>
+            <tr><td><code>int a[5] = {0};</code></td><td>0 0 0 0 0</td><td>the idiom for "all zeros"</td></tr>
+            <tr><td><code>int a[] = {4, 8, 15};</code></td><td>4 8 15</td><td>size left out: the compiler counts (3)</td></tr>
+            <tr><td><code>int a[5] = {[3] = 7};</code></td><td>0 0 0 7 0</td><td>a <em>designated</em> initialiser sets a chosen index</td></tr>
+            <tr><td><code>int a[5];</code> (inside a function)</td><td>? ? ? ? ?</td><td>no initialiser: garbage, like any uninitialised local</td></tr>
+        </tbody>
+    </table>
+    <p>Giving more values than there are elements (<code>int a[2] = {1, 2, 3};</code>) is an error. The zero-filling rule only applies when there's an initialiser; a bare <code>int a[5];</code> inside a function is not zeroed. (Arrays declared outside any function, or <code>static</code>, start as all zeros, just like other globals.)</p>
+
+    <h2>Indexing starts at 0</h2>
+    <p>You reach an element with <code>name[index]</code>. The first element is index <code>0</code>, so an array of <code>N</code> elements has valid indices <code>0</code> to <code>N - 1</code>. <code>scores[5]</code> in a five-element array is <em>not</em> the last element. It doesn't exist.</p>
+    <p>An element like <code>scores[2]</code> is an ordinary variable in every way: you can read it, assign to it, increment it, or pass it to a function.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int a[4] = {10, 20, 30, 40};
+
+            printf("first: %d, last: %d\n", a[0], a[3]);
+
+            a[1] = 99;          // write an element
+            a[2]++;             // elements are ordinary ints
+            int i = 3;
+            a[i] = a[0] + a[i]; // the index can be any int expression
+
+            for (int k = 0; k < 4; k++) {
+                printf("a[%d] = %d\n", k, a[k]);
+            }
+            return 0;
+        }
+    </script>
+
+    <p>The memory picture explains both the zero-based indexing and why arrays are so fast. The elements sit right next to each other, so with 4-byte <code>int</code>s, <code>a[i]</code> lives exactly <code>4 * i</code> bytes after the start of the array. Index 0 is the start itself. Step through a loop filling an array with squares:</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+
+            int main(void) {
+                int sq[4];
+                for (int i = 0; i < 4; i++) {
+                    sq[i] = i * i;
+                }
+                printf("%d\n", sq[3]);
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "heap": false,
+          "steps": [
+            { "line": 3, "note": "<code>main</code> starts.", "stack": [{ "fn": "main", "vars": [] }] },
+            { "line": 4, "note": "<code>int sq[4];</code> reserves 16 contiguous bytes: four <code>int</code>s, 4 bytes apart. No initialiser, so every element holds garbage.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "?" }, { "addr": "0x7ffe04", "value": "?" }, { "addr": "0x7ffe08", "value": "?" }, { "addr": "0x7ffe0c", "value": "?" }] }] }] },
+            { "line": 5, "note": "The loop starts with <code>i = 0</code>. <code>0 &lt; 4</code>, so the body runs.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "?" }, { "addr": "0x7ffe04", "value": "?" }, { "addr": "0x7ffe08", "value": "?" }, { "addr": "0x7ffe0c", "value": "?" }] }, { "name": "i", "type": "int", "addr": "0x7ffe1c", "value": "0" }] }] },
+            { "line": 6, "note": "<code>sq[0] = 0 * 0;</code> writes the element at the very start of the array (offset 0).",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "0" }, { "addr": "0x7ffe04", "value": "?" }, { "addr": "0x7ffe08", "value": "?" }, { "addr": "0x7ffe0c", "value": "?" }] }, { "name": "i", "type": "int", "addr": "0x7ffe1c", "value": "0" }] }] },
+            { "line": 5, "note": "<code>i++</code> makes <code>i</code> 1; <code>1 &lt; 4</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "0" }, { "addr": "0x7ffe04", "value": "?" }, { "addr": "0x7ffe08", "value": "?" }, { "addr": "0x7ffe0c", "value": "?" }] }, { "name": "i", "type": "int", "addr": "0x7ffe1c", "value": "1" }] }] },
+            { "line": 6, "note": "<code>sq[1] = 1;</code> lands 4 bytes in, at <code>0x7ffe04</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "0" }, { "addr": "0x7ffe04", "value": "1" }, { "addr": "0x7ffe08", "value": "?" }, { "addr": "0x7ffe0c", "value": "?" }] }, { "name": "i", "type": "int", "addr": "0x7ffe1c", "value": "1" }] }] },
+            { "line": 5, "note": "<code>i</code> becomes 2.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "0" }, { "addr": "0x7ffe04", "value": "1" }, { "addr": "0x7ffe08", "value": "?" }, { "addr": "0x7ffe0c", "value": "?" }] }, { "name": "i", "type": "int", "addr": "0x7ffe1c", "value": "2" }] }] },
+            { "line": 6, "note": "<code>sq[2] = 4;</code> at <code>0x7ffe00 + 2 * 4 = 0x7ffe08</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "0" }, { "addr": "0x7ffe04", "value": "1" }, { "addr": "0x7ffe08", "value": "4" }, { "addr": "0x7ffe0c", "value": "?" }] }, { "name": "i", "type": "int", "addr": "0x7ffe1c", "value": "2" }] }] },
+            { "line": 5, "note": "<code>i</code> becomes 3.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "0" }, { "addr": "0x7ffe04", "value": "1" }, { "addr": "0x7ffe08", "value": "4" }, { "addr": "0x7ffe0c", "value": "?" }] }, { "name": "i", "type": "int", "addr": "0x7ffe1c", "value": "3" }] }] },
+            { "line": 6, "note": "<code>sq[3] = 9;</code> fills the last element, index 3 (not 4!).",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "0" }, { "addr": "0x7ffe04", "value": "1" }, { "addr": "0x7ffe08", "value": "4" }, { "addr": "0x7ffe0c", "value": "9" }] }, { "name": "i", "type": "int", "addr": "0x7ffe1c", "value": "3" }] }] },
+            { "line": 5, "note": "<code>i</code> becomes 4 and <code>4 &lt; 4</code> is false, so the loop stops <em>before</em> touching <code>sq[4]</code>, which doesn't exist. That's why the condition is <code>&lt;</code>, not <code>&lt;=</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "0" }, { "addr": "0x7ffe04", "value": "1" }, { "addr": "0x7ffe08", "value": "4" }, { "addr": "0x7ffe0c", "value": "9" }] }, { "name": "i", "type": "int", "addr": "0x7ffe1c", "value": "4" }] }] },
+            { "line": 8, "note": "The loop is over, so <code>i</code> is out of scope. Prints the last element.", "output": "9",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sq", "type": "int[4]", "cells": [{ "addr": "0x7ffe00", "value": "0" }, { "addr": "0x7ffe04", "value": "1" }, { "addr": "0x7ffe08", "value": "4" }, { "addr": "0x7ffe0c", "value": "9" }] }] }] },
+            { "line": 10, "note": "<code>main</code> returns and the array's memory is released with its frame.", "output": "9", "stack": [] }
+          ]
+        }
+        </script>
+    </div>
+
+    <h2>Looping over an array, and <code>sizeof</code></h2>
+    <p>Hard-coding <code>5</code> in both the declaration and every loop is fragile: change the array size and forget one loop, and you have a bug. Two common fixes:</p>
+    <p><strong>1. Name the size once.</strong> <code>#define</code> creates a named constant (you'll learn the full story in the Preprocessor lesson; for now, read it as "replace <code>COUNT</code> with <code>5</code> everywhere"):</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        #define COUNT 5
+
+        int main(void) {
+            double temps[COUNT] = {21.5, 23.0, 19.8, 25.1, 22.4};
+            double hottest = temps[0];
+            for (int i = 1; i < COUNT; i++) {
+                if (temps[i] > hottest) {
+                    hottest = temps[i];
+                }
+            }
+            printf("hottest: %.1f\n", hottest);
+            return 0;
+        }
+    </script>
+    <p><strong>2. Let the compiler count.</strong> <code>sizeof</code> applied to an array gives the size of the <em>whole array</em> in bytes. Divide by the size of one element and you get the number of elements:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int primes[] = {2, 3, 5, 7, 11, 13, 17};
+            size_t n = sizeof primes / sizeof primes[0];
+
+            printf("the array is %zu bytes\n", sizeof primes);
+            printf("each element is %zu bytes\n", sizeof primes[0]);
+            printf("so it has %zu elements:", n);
+            for (size_t i = 0; i < n; i++) {
+                printf(" %d", primes[i]);
+            }
+            printf("\n");
+            return 0;
+        }
+    </script>
+    <p>Now you can add a number to the initialiser and every loop adjusts automatically. Dividing by <code>sizeof primes[0]</code> instead of <code>sizeof(int)</code> means it keeps working even if you later change the element type.</p>
+    <div class="callout tip">
+        <span class="callout-title">What's <code>size_t</code>?</span>
+        <p><code>sizeof</code> produces a value of type <code>size_t</code>, an <em>unsigned</em> integer type big enough to hold the size of any object. Print it with <code>%zu</code>. Using <code>size_t</code> for the loop counter too avoids a <code>-Wextra</code> warning about comparing signed and unsigned numbers. Just be careful counting <em>down</em> with an unsigned type: <code>i &gt;= 0</code> is always true, because an unsigned value can't be negative.</p>
+    </div>
+
+    <h2>No bounds checking</h2>
+    <p>Many languages stop your program with an error if you use an index outside the array. C does not. <code>a[i]</code> simply computes "start of <code>a</code> plus <code>i</code> elements" and reads or writes whatever memory is there. The compiler sometimes warns when the index is a constant, but with a variable index it usually can't know.</p>
+    <script type="text/c" data-static>
+        int a[5] = {1, 2, 3, 4, 5};
+        int other = 42;
+
+        a[5] = 0;                       // one past the end: undefined behaviour
+        for (int i = 0; i <= 5; i++) {  // <= is the classic off-by-one bug
+            printf("%d\n", a[i]);       // a[5] read on the last pass
+        }
+    </script>
+    <div class="callout danger">
+        <span class="callout-title">Out-of-bounds access is undefined behaviour</span>
+        <p>Reading or writing outside an array is <strong>undefined behaviour</strong>: the C standard places no requirements at all on what happens. It might crash, it might print a garbage number, or it might silently overwrite a neighbouring variable such as <code>other</code> and cause a "mysterious" bug far away. Worst of all, it often appears to work, until a different compiler, a different optimisation level or a different input. Out-of-bounds writes are behind a large fraction of real-world security vulnerabilities. Check your loop bounds, prefer <code>i &lt; n</code>, and when debugging compile with <code>-fsanitize=address</code>, which catches many of these at run time.</p>
+    </div>
+
+    <h2>What arrays can't do</h2>
+    <p>Arrays are not quite like other variables. You can't assign one array to another with <code>=</code>, even if they're the same type and size. Run this to see the compiler's error:</p>
+    <script type="text/c" data-expect-error="compile">
+        int main(void) {
+            int a[3] = {1, 2, 3};
+            int b[3];
+            b = a;          // error: arrays are not assignable
+            return 0;
+        }
+    </script>
+    <p>To copy an array, copy it element by element (or use <code>memcpy</code> from <code>&lt;string.h&gt;</code>, which does the same thing):</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int a[3] = {1, 2, 3};
+            int b[3];
+            for (int i = 0; i < 3; i++) {
+                b[i] = a[i];
+            }
+            b[0] = 100;     // b is an independent copy
+            printf("a[0]=%d b[0]=%d\n", a[0], b[0]);
+            return 0;
+        }
+    </script>
+    <p>Similarly:</p>
+    <ul>
+        <li><strong>A function can't return an array.</strong> <code>int[3] make(void)</code> is not valid C. The usual pattern is for the caller to own the array and pass it in for the function to fill, as in the next section.</li>
+        <li><strong><code>a == b</code> does not compare contents.</strong> It compiles (with a warning), but it asks whether the two arrays are at the same place in memory, which two different arrays never are. Compare element by element with a loop.</li>
+    </ul>
+    <p>The reasons for all three come from how arrays turn into pointers, which is exactly the subject of the Pointers &amp; Arrays lesson.</p>
+
+    <h2>Passing arrays to functions</h2>
+    <p>You can pass an array to a function. The parameter is written with empty brackets, and you almost always pass the length as a second parameter:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int sum(const int values[], int n) {
+            int total = 0;
+            for (int i = 0; i < n; i++) {
+                total += values[i];
+            }
+            return total;
+        }
+
+        void fill_with(int values[], int n, int x) {
+            for (int i = 0; i < n; i++) {
+                values[i] = x;
+            }
+        }
+
+        int main(void) {
+            int data[4] = {3, 1, 4, 1};
+            printf("sum = %d\n", sum(data, 4));
+
+            fill_with(data, 4, 7);
+            printf("after fill_with: %d %d %d %d\n", data[0], data[1], data[2], data[3]);
+            printf("sum = %d\n", sum(data, 4));
+            return 0;
+        }
+    </script>
+    <p>Two things here may surprise you, given what you learned about functions:</p>
+    <ol>
+        <li><strong>The function needs the length.</strong> Inside <code>sum</code>, <code>values</code> doesn't know how many elements it has, and <code>sizeof values / sizeof values[0]</code> gives the wrong answer (the compiler even warns about it). The <code>sizeof</code> trick only works where the array was <em>declared</em>.</li>
+        <li><strong><code>fill_with</code> changed the caller's array.</strong> Pass by value copies an <code>int</code>, but the array itself is <em>not</em> copied. The function works on the caller's elements directly. That's why <code>sum</code> marks its parameter <code>const</code>: a promise (enforced by the compiler) that it only reads.</li>
+    </ol>
+    <p>Both facts have the same cause: what actually gets passed is the array's starting address. You'll see exactly how that works in Pointers &amp; Arrays. For now, the rule is simple: pass the array <em>and</em> its length, and use <code>const</code> when the function shouldn't modify it.</p>
+
+    <h2>Two-dimensional arrays</h2>
+    <p>An array's elements can themselves be arrays. <code>int grid[3][4];</code> is an array of 3 rows, each of which is an array of 4 <code>int</code>s. Index it with <code>grid[row][col]</code>, and loop over it with one loop nested inside another:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        #define ROWS 3
+        #define COLS 4
+
+        int main(void) {
+            int grid[ROWS][COLS] = {
+                {1,  2,  3,  4},
+                {5,  6,  7,  8},
+                {9, 10, 11, 12},
+            };
+
+            grid[1][2] = 0;     // row 1, column 2 (the 7)
+
+            for (int r = 0; r < ROWS; r++) {
+                for (int c = 0; c < COLS; c++) {
+                    printf("%3d", grid[r][c]);
+                }
+                printf("\n");
+            }
+            return 0;
+        }
+    </script>
+    <h3>Row-major layout</h3>
+    <p>Memory is one-dimensional, so the rows are laid out one after another: all of row 0, then all of row 1, and so on. This is called <strong>row-major order</strong>. For the grid above:</p>
+    <table>
+        <thead><tr><th>Offset (elements)</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>…</th></tr></thead>
+        <tbody>
+            <tr><td>Element</td><td><code>[0][0]</code></td><td><code>[0][1]</code></td><td><code>[0][2]</code></td><td><code>[0][3]</code></td><td><code>[1][0]</code></td><td><code>[1][1]</code></td><td><code>[1][2]</code></td><td><code>[1][3]</code></td><td><code>[2][0]</code></td><td>…</td></tr>
+        </tbody>
+    </table>
+    <p>So <code>grid[r][c]</code> is element number <code>r * COLS + c</code> from the start. Two practical consequences:</p>
+    <ul>
+        <li>Looping with the <em>row</em> in the outer loop and the <em>column</em> in the inner loop visits memory in order, which is noticeably faster on big arrays than the other way round.</li>
+        <li><code>sizeof grid</code> is <code>3 * 4 * sizeof(int)</code>, and <code>sizeof grid[0]</code> is the size of one row.</li>
+    </ul>
+    <p>When you pass a 2D array to a function, the compiler needs to know the row length to compute <code>r * COLS + c</code>, so every dimension except the first must be given: <code>void print_grid(int g[][COLS], int rows)</code>.</p>
+
+    <h2>Common mistakes</h2>
+    <ul>
+        <li><strong>Off-by-one:</strong> <code>i &lt;= n</code> instead of <code>i &lt; n</code>, or treating <code>a[n]</code> as the last element.</li>
+        <li><strong>Forgetting to initialise:</strong> <code>int counts[10];</code> then <code>counts[i]++</code> increments garbage. Use <code>= {0}</code>.</li>
+        <li><strong>Using <code>sizeof</code> on an array parameter</strong> to get its length. Pass the length instead.</li>
+        <li><strong>Trying to copy or compare with <code>=</code> or <code>==</code>.</strong> Use a loop.</li>
+        <li><strong>Mixing up <code>grid[r][c]</code> and <code>grid[c][r]</code></strong> on non-square arrays, which runs off the end of a row.</li>
+    </ul>
+
+    <div class="exercise" data-id="arrays-max-element">
+        <h3>Find the maximum</h3>
+        <p>Complete <code>max_element</code> so it returns the largest value in the first <code>n</code> elements of <code>values</code>, and <code>index_of_max</code> so it returns the index where that largest value first appears. Careful: the array contains negative numbers, so starting your "best so far" at 0 would be a bug.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int max_element(const int values[], int n) {
+                // TODO
+                return 0;
+            }
+
+            int index_of_max(const int values[], int n) {
+                // TODO
+                return 0;
+            }
+
+            int main(void) {
+                int readings[] = {-7, -3, -12, -3, -9};
+                int n = sizeof readings / sizeof readings[0];
+                printf("max = %d\n", max_element(readings, n));
+                printf("first at index %d\n", index_of_max(readings, n));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            max = -3
+            first at index 1
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int max_element(const int values[], int n) {
+                int best = values[0];
+                for (int i = 1; i < n; i++) {
+                    if (values[i] > best) {
+                        best = values[i];
+                    }
+                }
+                return best;
+            }
+
+            int index_of_max(const int values[], int n) {
+                int best = 0;
+                for (int i = 1; i < n; i++) {
+                    if (values[i] > values[best]) {
+                        best = i;
+                    }
+                }
+                return best;
+            }
+
+            int main(void) {
+                int readings[] = {-7, -3, -12, -3, -9};
+                int n = sizeof readings / sizeof readings[0];
+                printf("max = %d\n", max_element(readings, n));
+                printf("first at index %d\n", index_of_max(readings, n));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Start with the first element as the best so far (<code>int best = values[0];</code>) and loop from index 1. For the index version, remember the <em>index</em> of the best, and use <code>&gt;</code> rather than <code>&gt;=</code> so a later tie doesn't replace the first one.</p></details>
+    </div>
+
+    <div class="exercise" data-id="arrays-reverse-in-place">
+        <h3>Reverse in place</h3>
+        <p>Write <code>void reverse(int values[], int n)</code> that reverses the array <strong>in place</strong>: no second array. Then <code>main</code> prints it. It must work for both odd and even lengths.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            void reverse(int values[], int n) {
+                // TODO: swap the first and last, then the second and second-to-last, ...
+            }
+
+            void print_array(const int values[], int n) {
+                for (int i = 0; i < n; i++) {
+                    printf("%d ", values[i]);
+                }
+                printf("\n");
+            }
+
+            int main(void) {
+                int odd[] = {1, 2, 3, 4, 5};
+                int even[] = {10, 20, 30, 40, 50, 60};
+                reverse(odd, 5);
+                reverse(even, 6);
+                print_array(odd, 5);
+                print_array(even, 6);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            5 4 3 2 1
+            60 50 40 30 20 10
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            void reverse(int values[], int n) {
+                for (int i = 0; i < n / 2; i++) {
+                    int tmp = values[i];
+                    values[i] = values[n - 1 - i];
+                    values[n - 1 - i] = tmp;
+                }
+            }
+
+            void print_array(const int values[], int n) {
+                for (int i = 0; i < n; i++) {
+                    printf("%d ", values[i]);
+                }
+                printf("\n");
+            }
+
+            int main(void) {
+                int odd[] = {1, 2, 3, 4, 5};
+                int even[] = {10, 20, 30, 40, 50, 60};
+                reverse(odd, 5);
+                reverse(even, 6);
+                print_array(odd, 5);
+                print_array(even, 6);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Element <code>i</code> pairs with element <code>n - 1 - i</code>. Swap each pair using a temporary <code>int</code>, but only loop up to <code>n / 2</code>: if you go all the way to <code>n</code>, you swap everything twice and end up where you started.</p></details>
+    </div>
+
+    <div class="exercise" data-id="arrays-grid-sums">
+        <h3>Row and column totals</h3>
+        <p>Given a 3×4 grid of sales figures, print each row (labelled <code>row 0:</code> and so on) followed by its row total, then a <code>total:</code> line with the total of each column and the grand total. Use <code>%4d</code> for every number so the columns line up, exactly as in the expected output.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            #define ROWS 3
+            #define COLS 4
+
+            int main(void) {
+                int sales[ROWS][COLS] = {
+                    {5, 3, 8, 1},
+                    {2, 7, 4, 6},
+                    {9, 0, 3, 5},
+                };
+
+                // TODO: for each row r, print "row %d:", then each value with "%4d",
+                //       then " |" and the row's total with "%4d"
+                // TODO: print "total:", each column total with "%4d",
+                //       then " |" and the grand total
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            row 0:   5   3   8   1 |  17
+            row 1:   2   7   4   6 |  19
+            row 2:   9   0   3   5 |  17
+            total:  16  10  15  12 |  53
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            #define ROWS 3
+            #define COLS 4
+
+            int main(void) {
+                int sales[ROWS][COLS] = {
+                    {5, 3, 8, 1},
+                    {2, 7, 4, 6},
+                    {9, 0, 3, 5},
+                };
+
+                int col_totals[COLS] = {0};
+                int grand = 0;
+
+                for (int r = 0; r < ROWS; r++) {
+                    int row_total = 0;
+                    printf("row %d:", r);
+                    for (int c = 0; c < COLS; c++) {
+                        printf("%4d", sales[r][c]);
+                        row_total += sales[r][c];
+                        col_totals[c] += sales[r][c];
+                    }
+                    printf(" |%4d\n", row_total);
+                    grand += row_total;
+                }
+
+                printf("total:");
+                for (int c = 0; c < COLS; c++) {
+                    printf("%4d", col_totals[c]);
+                }
+                printf(" |%4d\n", grand);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Keep a running <code>row_total</code> that you reset at the start of each row, and an array <code>int col_totals[COLS] = {0};</code> where the inner loop adds <code>sales[r][c]</code> to <code>col_totals[c]</code>. The grand total is the sum of the row totals.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "What does this print?", "type": "output",
+        "code": "int a[5] = {1, 2};\nprintf(\"%d %d\", a[1], a[4]);",
+        "answer": "2 0", "explain": "When an initialiser is given, any elements it doesn't cover are set to zero. <code>a</code> is <code>{1, 2, 0, 0, 0}</code>." },
+      { "q": "For <code>int a[10];</code>, which indices are valid?",
+        "choices": ["1 to 10", "0 to 10", "0 to 9", "Any index; C grows the array as needed"],
+        "answer": 2, "explain": "Indices start at 0, so the last valid one is <code>10 - 1 = 9</code>. Arrays in C never grow." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int a[] = {3, 1, 4, 1, 5, 9};\nprintf(\"%zu\", sizeof a / sizeof a[0]);",
+        "answer": "6", "explain": "<code>sizeof a</code> is the whole array (24 bytes with 4-byte ints) and <code>sizeof a[0]</code> is one element (4), giving 6 elements." },
+      { "q": "What happens if a program writes to <code>a[10]</code> where <code>a</code> is declared <code>int a[10];</code>?",
+        "choices": ["The program always stops with an \"index out of range\" error", "Undefined behaviour: it might crash, corrupt other data, or seem to work", "The array automatically grows to 11 elements", "The write is silently ignored"],
+        "answer": 1, "explain": "C performs no bounds checking. Writing past the end is undefined behaviour, and it often corrupts whatever is stored next to the array." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int m[2][3] = {{1, 2, 3}, {4, 5, 6}};\nprintf(\"%d %d\", m[1][0], m[0][2]);",
+        "answer": "4 3", "explain": "<code>m[1]</code> is the second row <code>{4, 5, 6}</code>, so <code>m[1][0]</code> is 4. <code>m[0][2]</code> is the last element of the first row, 3." },
+      { "q": "Why does a function like <code>int sum(const int values[], int n)</code> take the length as a separate parameter?",
+        "choices": ["Because the function can't find out the array's length on its own; <code>sizeof</code> doesn't work on an array parameter", "Because C requires every function to have at least two parameters", "To make the function run faster", "It doesn't need it; <code>n</code> is just for documentation"],
+        "answer": 0, "explain": "Only the array's starting point is passed, not its size. Inside the function, <code>sizeof values</code> measures the parameter, not the caller's array. (Why exactly is covered in Pointers &amp; Arrays.)" },
+      { "q": "Given <code>int a[3] = {1, 2, 3}; int b[3];</code>, how do you make <code>b</code> a copy of <code>a</code>?",
+        "choices": ["<code>b = a;</code>", "<code>b[] = a[];</code>", "<code>b = {a};</code>", "Copy each element in a loop: <code>b[i] = a[i];</code>"],
+        "answer": 3, "explain": "Arrays can't be assigned with <code>=</code>; that line is a compile error. Copy them element by element (or with <code>memcpy</code>)." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

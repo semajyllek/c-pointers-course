@@ -3,183 +3,779 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Pointers in C</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Advanced Pointers · Learn C</title>
+    <meta name="description" content="Pointers to pointers, arrays of pointers and argv, dynamic 2D arrays, const placement, void * and function pointers with qsort.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
 </head>
 <body>
-    <header>
-        <h1>Advanced Pointers in C</h1>
-        <a href="index.html">Back to Home</a>
-        <a href="introduction.html">Introduction</a>
-        <a href="pointer-arithmetic.html">Pointer Arithmetic</a>
-        <a href="pointers-and-arrays.html">Pointers and Arrays</a>
-        <a href="pointers-and-functions.html">Pointers and Functions</a>
-        <a href="dynamic-memory-allocation.html">Dynamic Memory Allocation</a>
-    </header>
-    <main>
-        <section>
-            <h2>Function Pointers</h2>
-            <p>Function pointers allow you to store the address of a function and call it using the pointer. This is particularly useful for implementing callbacks.</p>
-            <pre><code>
-#include &lt;stdio.h&gt;
+<main>
+    <h1>Advanced Pointers</h1>
+    <p class="lead">You know what a pointer is and how to use one with arrays, functions and the heap. This lesson covers the next layer: pointers that point at other pointers, arrays full of pointers, <code>const</code>, the type-less <code>void *</code>, and pointers to <em>functions</em>. None of it needs new rules. Each one is the same idea, "a variable that holds an address", applied one more time.</p>
 
+    <h2>Pointers to pointers</h2>
+    <p>A pointer is a variable, so it lives somewhere in memory and has an address of its own. A variable that stores <em>that</em> address is a pointer to a pointer. Read the declaration right to left from the name, just like before:</p>
+    <script type="text/c" data-static>
+        int    x  = 7;
+        int   *p  = &x;    // p is a pointer to an int
+        int  **pp = &p;    // pp is a pointer to a pointer to an int
+    </script>
+    <p>Each <code>*</code> you apply follows one arrow. <code>pp</code> is the address of <code>p</code>, <code>*pp</code> is <code>p</code> itself (the address of <code>x</code>), and <code>**pp</code> is <code>x</code>.</p>
 
-void greet() {
-    printf("Hello, World!\n");
-}
+    <script type="text/c">
+        #include <stdio.h>
 
-int main() {
-    void (*funcPtr)() = greet; // Declare a function pointer and assign it
-    funcPtr(); // Call the function using the pointer
-    return 0;
-}
-            </code></pre>
-        </section>
+        int main(void) {
+            int x = 7;
+            int *p = &x;
+            int **pp = &p;
 
-        <section>
-            <h2>Pointers to Pointers</h2>
-            <p>Pointers to pointers are useful when you need to manage multiple levels of indirection. They can also be used in managing dynamic multi-dimensional arrays.</p>
-            <pre><code>
-#include &lt;stdio.h&gt;
+            printf("x    = %d\n", x);
+            printf("*p   = %d\n", *p);
+            printf("**pp = %d\n", **pp);
 
-int main() {
-    int val = 5;
-    int *ptr = &val; // Pointer to an int
-    int **ptrToPtr = &ptr; // Pointer to a pointer
+            printf("&x  = %p\n", (void *)&x);
+            printf("p   = %p   (same as &x)\n", (void *)p);
+            printf("*pp = %p   (same as p)\n", (void *)*pp);
+            printf("&p  = %p\n", (void *)&p);
+            printf("pp  = %p   (same as &p)\n", (void *)pp);
 
-    printf("Value: %d\n", **ptrToPtr); // Accessing the value using the pointer to pointer
-    return 0;
-}
-            </code></pre>
-        </section>
-
-        <section>
-            <h2>Arrays of Pointers</h2>
-            <p>Arrays of pointers can store multiple addresses, which is particularly useful for dynamically allocated data structures.</p>
-            <pre><code>
-#include &lt;stdio.h&gt;
-
-int main() {
-    int *arr[3]; // Array of 3 integer pointers
-    for (int i = 0; i < 3; i++) {
-        arr[i] = (int *)malloc(sizeof(int)); // Allocate memory for each pointer
-        *arr[i] = (i + 1) * 10; // Initialize
-        printf("Value: %d\n", *arr[i]);
-    }
-
-    // Free allocated memory
-    for (int i = 0; i < 3; i++) {
-        free(arr[i]);
-    }
-    return 0;
-}
-            </code></pre>
-        </section>
-
-        <section>
-            <h2>Dynamic 2D Arrays</h2>
-            <p>Creating dynamic two-dimensional arrays using pointers can help manage complex data structures like matrices.</p>
-            <pre><code>
-#include &lt;stdio.h&gt;
-#include &lt;stdlib.h&gt;
-
-int main() {
-    int rows = 3, cols = 4;
-    int **matrix = (int **)malloc(rows * sizeof(int *));
-    for (int i = 0; i < rows; i++) {
-        matrix[i] = (int *)malloc(cols * sizeof(int));
-    }
-
-    // Initialize and display the matrix
-    for (int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            matrix[i][j] = (i + 1) * (j + 1);
-            printf("%d ", matrix[i][j]);
+            **pp = 99;          // follow both arrows and write
+            printf("x is now %d\n", x);
+            return 0;
         }
-        printf("\n");
-    }
+    </script>
 
-    // Free allocated memory
-    for (int i = 0; i < rows; i++) {
-        free(matrix[i]);
-    }
-    free(matrix);
-    return 0;
-}
-            </code></pre>
-        </section>
+    <table>
+        <thead><tr><th>Expression</th><th>Type</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td><code>pp</code></td><td><code>int **</code></td><td>the address of <code>p</code></td></tr>
+            <tr><td><code>*pp</code></td><td><code>int *</code></td><td>the value of <code>p</code>, i.e. the address of <code>x</code></td></tr>
+            <tr><td><code>**pp</code></td><td><code>int</code></td><td>the value of <code>x</code></td></tr>
+        </tbody>
+    </table>
+    <p>You could keep going (<code>int ***</code> is legal), but in practice you'll rarely see more than two levels. The interesting question is not "how deep can it go" but "why would I ever want two?"</p>
 
-        <section>
-            <h2>Memory Management Best Practices</h2>
-            <p>It's crucial to manage dynamically allocated memory to prevent memory leaks. Always ensure that every call to <code>malloc</code> or related functions has a corresponding call to <code>free</code>.</p>
-            <p>Valgrind is a helpful tool for detecting memory leaks, helping you debug and improve memory usage in your programs.</p>
-        </section>
+    <h2>Why: letting a function change the caller's pointer</h2>
+    <p>In Pointers &amp; Functions you saw that C passes every argument <strong>by value</strong>. To let a function change an <code>int</code> in the caller, you pass an <code>int *</code>. The exact same logic applies one level up: to let a function change an <code>int *</code> in the caller, you pass an <code>int **</code>.</p>
+    <p>Here's the classic mistake. This function tries to allocate memory "for" its caller:</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stdlib.h>
 
-        <section>
-            <h2>Using Valgrind</h2>
-            <p>Valgrind is a programming tool used for memory debugging, memory leak detection, and profiling. To use Valgrind:</p>
-            <ol>
-                <li>Install Valgrind on your system. You can typically do this using package managers. For example, on Ubuntu, you can run:
-                    <pre><code>sudo apt install valgrind</code></pre>
-                </li>
-                <li>Compile your C program with debugging information:
-                    <pre><code>gcc -g your_program.c -o your_program</code></pre>
-                </li>
-                <li>Run your program with Valgrind:
-                    <pre><code>valgrind --leak-check=full ./your_program</code></pre>
-                </li>
-                <li>Analyze the output: Valgrind will provide details about memory usage, any memory leaks, and where issues may be occurring in your code.</li>
-            </ol>
-            <p>Example output includes not only memory leak summaries but also hints about uninitialized memory reads, which can help catch subtle bugs.</p>
-        </section>
+        // BROKEN: p is a local copy of the caller's pointer.
+        void make_int_broken(int *p, int value) {
+            p = malloc(sizeof *p);     // changes the copy only
+            if (p != NULL) {
+                *p = value;
+            }
+            // the copy disappears here, so the block is leaked
+        }
 
-        <section>
-            <h2>Quiz: Advanced Pointers</h2>
-            <div id="quiz">
-                <p>1. What is a function pointer?</p>
-                <label for="q1">
-                    <input type="radio" name="q1" value="Pointer to a function"> Pointer to a function<br>
-                    <input type="radio" name="q1" value="Pointer to an integer"> Pointer to an integer<br>
-                    <input type="radio" name="q1" value="A type of array"> A type of array<br>
-                </label>
+        int main(void) {
+            int *mine = NULL;
+            make_int_broken(mine, 42);
+            if (mine == NULL) {
+                printf("mine is still NULL: the function changed its own copy\n");
+            }
+            return 0;
+        }
+    </script>
+    <p>The function received a <em>copy</em> of <code>mine</code> (which was <code>NULL</code>), pointed the copy at a fresh heap block, and then returned. The caller's variable never changed, and the only pointer to the heap block is gone: a memory leak. The fix is to pass the <em>address</em> of the caller's pointer, so the function can write into it. Step through the fixed version:</p>
 
-                <p>2. How do you declare a pointer to a pointer?</p>
-                <label for="q2">
-                    <input type="radio" name="q2" value="int **ptr"> int **ptr<br>
-                    <input type="radio" name="q2" value="int *ptr"> int *ptr<br>
-                    <input type="radio" name="q2" value="pointer **ptr"> pointer **ptr<br>
-                </label>
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+            #include <stdlib.h>
 
-                <p>3. What does the expression <code>matrix[i][j]</code> in a dynamic 2D array refer to?</p>
-                <label for="q3">
-                    <input type="radio" name="q3" value="The first element of the first row"> The first element of the first row<br>
-                    <input type="radio" name="q3" value="The element located at row i, column j"> The element located at row i, column j<br>
-                    <input type="radio" name="q3" value="The pointer to the first row"> The pointer to the first row<br>
-                </label>
+            void make_int(int **pp, int value) {
+                *pp = malloc(sizeof **pp);
+                if (*pp != NULL) {
+                    **pp = value;
+                }
+            }
 
-                <p>4. Why is it important to free dynamically allocated memory?</p>
-                <label for="q4">
-                    <input type="radio" name="q4" value="To clear the cache"> To clear the cache<br>
-                    <input type="radio" name="q4" value="To prevent memory leaks"> To prevent memory leaks<br>
-                    <input type="radio" name="q4" value="It's not important"> It's not important<br>
-                </label>
+            int main(void) {
+                int *p = NULL;
+                make_int(&p, 42);
+                if (p == NULL) return 1;
+                printf("%d\n", *p);
+                free(p);
+                p = NULL;
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "steps": [
+            { "line": 11, "note": "<code>main</code> starts. Nothing is on the heap yet.", "stack": [{ "fn": "main", "vars": [] }], "heap": [] },
+            { "line": 12, "note": "<code>int *p = NULL;</code> creates a pointer that doesn't point anywhere yet.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "p", "type": "int *", "addr": "0x7ffc20", "value": "NULL" }] }], "heap": [] },
+            { "line": 4, "note": "<code>make_int(&amp;p, 42)</code> is called. Its parameter <code>pp</code> receives the <em>address of</em> <code>p</code>, so the arrow goes from <code>pp</code> to <code>p</code> itself.",
+              "stack": [
+                { "fn": "main", "vars": [{ "name": "p", "type": "int *", "addr": "0x7ffc20", "value": "NULL" }] },
+                { "fn": "make_int", "vars": [{ "name": "pp", "type": "int **", "addr": "0x7ffbf8", "value": "0x7ffc20", "ptr": "0x7ffc20" }, { "name": "value", "type": "int", "addr": "0x7ffbf4", "value": "42" }] }
+              ], "heap": [] },
+            { "line": 5, "note": "<code>malloc</code> returns the address of a new 4-byte block. <code>*pp = ...</code> follows the arrow from <code>pp</code> and stores that address <strong>in <code>main</code>'s <code>p</code></strong>. (<code>sizeof **pp</code> is <code>sizeof(int)</code>, written so it stays right if the type changes.)",
+              "stack": [
+                { "fn": "main", "vars": [{ "name": "p", "type": "int *", "addr": "0x7ffc20", "value": "0x5581a0", "ptr": "0x5581a0" }] },
+                { "fn": "make_int", "vars": [{ "name": "pp", "type": "int **", "addr": "0x7ffbf8", "value": "0x7ffc20", "ptr": "0x7ffc20" }, { "name": "value", "type": "int", "addr": "0x7ffbf4", "value": "42" }] }
+              ],
+              "heap": [{ "label": "malloc(4)", "cells": [{ "addr": "0x5581a0", "value": "?" }] }] },
+            { "line": 7, "note": "<code>**pp = value;</code> follows <em>two</em> arrows: <code>pp</code> to <code>p</code>, then <code>p</code> to the heap block, and writes <code>42</code> there.",
+              "stack": [
+                { "fn": "main", "vars": [{ "name": "p", "type": "int *", "addr": "0x7ffc20", "value": "0x5581a0", "ptr": "0x5581a0" }] },
+                { "fn": "make_int", "vars": [{ "name": "pp", "type": "int **", "addr": "0x7ffbf8", "value": "0x7ffc20", "ptr": "0x7ffc20" }, { "name": "value", "type": "int", "addr": "0x7ffbf4", "value": "42" }] }
+              ],
+              "heap": [{ "label": "malloc(4)", "cells": [{ "addr": "0x5581a0", "value": "42" }] }] },
+            { "line": 9, "note": "<code>make_int</code> returns and its frame disappears. That's fine: the important change was made to <code>main</code>'s own <code>p</code>, which now points to the heap block.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "p", "type": "int *", "addr": "0x7ffc20", "value": "0x5581a0", "ptr": "0x5581a0" }] }],
+              "heap": [{ "label": "malloc(4)", "cells": [{ "addr": "0x5581a0", "value": "42" }] }] },
+            { "line": 15, "note": "<code>p</code> isn't <code>NULL</code>, so we print <code>*p</code>.", "output": "42",
+              "stack": [{ "fn": "main", "vars": [{ "name": "p", "type": "int *", "addr": "0x7ffc20", "value": "0x5581a0", "ptr": "0x5581a0" }] }],
+              "heap": [{ "label": "malloc(4)", "cells": [{ "addr": "0x5581a0", "value": "42" }] }] },
+            { "line": 16, "note": "<code>free(p);</code> returns the block. <code>p</code> still holds the old address, so it is now a <strong>dangling pointer</strong>.", "output": "42",
+              "stack": [{ "fn": "main", "vars": [{ "name": "p", "type": "int *", "addr": "0x7ffc20", "value": "0x5581a0", "ptr": "0x5581a0" }] }],
+              "heap": [{ "label": "malloc(4)", "freed": true, "cells": [{ "addr": "0x5581a0", "value": "?" }] }] },
+            { "line": 17, "note": "Setting <code>p = NULL;</code> removes the dangling address, so an accidental later use fails loudly instead of silently.", "output": "42",
+              "stack": [{ "fn": "main", "vars": [{ "name": "p", "type": "int *", "addr": "0x7ffc20", "value": "NULL" }] }],
+              "heap": [] },
+            { "line": 18, "note": "<code>main</code> returns. Every <code>malloc</code> had a matching <code>free</code>.", "output": "42", "stack": [], "heap": [] }
+          ]
+        }
+        </script>
+    </div>
 
-                <p>5. What does a memory leak mean?</p>
-                <label for="q5">
-                    <input type="radio" name="q5" value="Memory that is not used"> Memory that is not used<br>
-                    <input type="radio" name="q5" value="Memory that is not freed"> Memory that is not freed<br>
-                    <input type="radio" name="q5" value="Both are correct"> Both are correct<br>
-                </label>
+    <p>The pattern generalises. Whenever a function needs to <em>reassign</em> a pointer that belongs to its caller (allocate it, reallocate it, advance it, set it to <code>NULL</code>), take a pointer to that pointer. You'll use exactly this in the linked-list capstone, where <code>push_front(&amp;head, 5)</code> has to change which node <code>head</code> points to.</p>
 
-				<br>
-                <button onclick="checkAdvancedPointerAnswers()">Submit Quiz</button>
-                <div id="result"></div>
-            </div>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2024 Pointers Course - James Kelly</p>
-	</footer>
-    <script src="script.js"></script>
+    <div class="callout tip">
+        <span class="callout-title">The alternative: return the pointer</span>
+        <p>Often it's simpler to just <em>return</em> the new pointer: <code>int *make_int(int value)</code>, used as <code>p = make_int(42);</code>. That's what <code>malloc</code> itself does. Out-parameters (<code>int **out</code>) shine when the return value is already used for something else, such as an error code, or when a function produces several pointers at once.</p>
+    </div>
+
+    <h2>Arrays of pointers</h2>
+    <p>An array can hold any type, including pointers. The most common case is an array of strings:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            const char *names[] = { "Ada", "Linus", "Grace", "Dennis" };
+            size_t count = sizeof names / sizeof names[0];
+
+            for (size_t i = 0; i < count; i++) {
+                printf("%zu: %-6s (first letter %c)\n", i, names[i], names[i][0]);
+            }
+
+            printf("sizeof names    = %zu bytes (%zu pointers)\n", sizeof names, count);
+            return 0;
+        }
+    </script>
+    <p>Each element of <code>names</code> is a <code>const char *</code> pointing at a string literal stored elsewhere. The strings can have different lengths, because the array only stores the addresses. (<code>const</code> is there because string literals must not be modified. More on <code>const</code> below.) Compare that with a 2D <code>char</code> array, <code>char names[4][7]</code>, where every row is a fixed 7 bytes whether you need them or not.</p>
+    <p>Note the subscripting: <code>names[i]</code> is a <code>const char *</code>, and <code>names[i][0]</code> is a <code>char</code>, the first letter of that string. When an array of pointers is passed to a function it decays, as arrays do, into a pointer to its first element, which is a pointer to a pointer: <code>const char **</code>.</p>
+
+    <h3><code>argv</code>: the array of pointers you've been ignoring</h3>
+    <p><code>main</code> has a second standard form that receives the program's command-line arguments:</p>
+    <script type="text/c" data-static>
+        int main(int argc, char *argv[])   // exactly equivalent: char **argv
+    </script>
+    <ul>
+        <li><code>argc</code> ("argument count") is how many strings there are, including the program's own name.</li>
+        <li><code>argv</code> ("argument vector") is an array of <code>char *</code>. <code>argv[0]</code> is the program name (by convention), <code>argv[1]</code> is the first real argument, and so on.</li>
+        <li>The standard guarantees <code>argv[argc]</code> is a null pointer, so you can loop either by count or until <code>NULL</code>.</li>
+    </ul>
+    <p>In a parameter list, <code>char *argv[]</code> and <code>char **argv</code> mean the same thing, because array parameters are adjusted to pointers. Run this. The online runner passes no extra arguments, so you'll only see <code>argv[0]</code>:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(int argc, char *argv[]) {
+            printf("argc = %d\n", argc);
+            for (int i = 0; i < argc; i++) {
+                printf("argv[%d] = \"%s\"\n", i, argv[i]);
+            }
+            printf("argv[argc] is %s\n", argv[argc] == NULL ? "NULL" : "not NULL");
+            return 0;
+        }
+    </script>
+    <p>Compiled on your own machine and run with some arguments, it looks like this. The shell splits on spaces unless you quote:</p>
+    <pre class="terminal">./args hello "big world" 42
+argc = 4
+argv[0] = "./args"
+argv[1] = "hello"
+argv[2] = "big world"
+argv[3] = "42"
+argv[argc] is NULL</pre>
+    <div class="callout warn">
+        <span class="callout-title">Arguments are always strings</span>
+        <p><code>argv[3]</code> above is the string <code>"42"</code>, not the number 42. Convert it with <code>strtol</code> (or <code>atoi</code> for quick experiments, though it can't report errors), and always check <code>argc</code> before reading <code>argv[1]</code>. Reading past <code>argv[argc]</code> is undefined behaviour.</p>
+    </div>
+
+    <h2>Dynamically allocated 2D arrays</h2>
+    <p>A built-in 2D array like <code>int grid[3][4]</code> needs its size fixed at compile time and lives on the stack. When the dimensions come from user input, a common approach is an <strong>array of row pointers</strong>: allocate an array of <code>int *</code> (one per row), then allocate each row separately.</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stdlib.h>
+
+        void free_grid(int **grid, size_t rows) {
+            if (grid == NULL) return;
+            for (size_t r = 0; r < rows; r++) {
+                free(grid[r]);              // free each row first...
+            }
+            free(grid);                     // ...then the array of row pointers
+        }
+
+        int **make_grid(size_t rows, size_t cols) {
+            int **grid = malloc(rows * sizeof *grid);       // rows pointers
+            if (grid == NULL) return NULL;
+
+            for (size_t r = 0; r < rows; r++) {
+                grid[r] = malloc(cols * sizeof *grid[r]);   // cols ints
+                if (grid[r] == NULL) {
+                    free_grid(grid, r);     // free only the rows that succeeded
+                    return NULL;
+                }
+            }
+            return grid;
+        }
+
+        int main(void) {
+            size_t rows = 3, cols = 4;
+            int **grid = make_grid(rows, cols);
+            if (grid == NULL) {
+                fprintf(stderr, "out of memory\n");
+                return 1;
+            }
+
+            for (size_t r = 0; r < rows; r++) {
+                for (size_t c = 0; c < cols; c++) {
+                    grid[r][c] = (int)((r + 1) * (c + 1));
+                }
+            }
+
+            for (size_t r = 0; r < rows; r++) {
+                for (size_t c = 0; c < cols; c++) {
+                    printf("%4d", grid[r][c]);
+                }
+                printf("\n");
+            }
+
+            free_grid(grid, rows);
+            return 0;
+        }
+    </script>
+    <p>Why does <code>grid[r][c]</code> work? <code>grid[r]</code> means <code>*(grid + r)</code>: step <code>r</code> pointers along and read one. That gives an <code>int *</code> to the start of row <code>r</code>, and <code>[c]</code> indexes into that row. Same syntax as a real 2D array, quite different memory underneath: the rows are separate heap blocks that may be anywhere.</p>
+    <p>Two details matter here:</p>
+    <ul>
+        <li><strong>Free in the reverse order you allocated.</strong> If you <code>free(grid)</code> first, the row pointers are gone and you can't legally read <code>grid[r]</code> any more to free the rows.</li>
+        <li><strong>Clean up partial failures.</strong> If row 2's <code>malloc</code> fails, rows 0 and 1 (and <code>grid</code> itself) must still be freed. That's why <code>make_grid</code> calls <code>free_grid(grid, r)</code> with the number of rows that actually succeeded.</li>
+    </ul>
+    <div class="callout tip">
+        <span class="callout-title">The one-block alternative</span>
+        <p>Row pointers make <em>ragged</em> arrays (rows of different lengths) easy. If every row is the same length, you can instead allocate one block, <code>int *cells = malloc(rows * cols * sizeof *cells);</code>, and index it as <code>cells[r * cols + c]</code>. That's one <code>malloc</code>, one <code>free</code>, no partial-failure cleanup, and the data is contiguous, which is faster to loop over.</p>
+    </div>
+
+    <h2><code>const</code> and pointers</h2>
+    <p>With a pointer there are two things that could be read-only: the <em>pointer</em> (where it points) and the <em>data</em> (what it points to). Where you put <code>const</code> decides which. The trick is again to read right to left from the name:</p>
+    <table>
+        <thead><tr><th>Declaration</th><th>Read right to left</th><th>Change <code>*p</code>?</th><th>Change <code>p</code>?</th></tr></thead>
+        <tbody>
+            <tr><td><code>int *p</code></td><td>p is a pointer to int</td><td>yes</td><td>yes</td></tr>
+            <tr><td><code>const int *p</code><br><code>int const *p</code></td><td>p is a pointer to an int that is const</td><td><strong>no</strong></td><td>yes</td></tr>
+            <tr><td><code>int *const p</code></td><td>p is a const pointer to int</td><td>yes</td><td><strong>no</strong></td></tr>
+            <tr><td><code>const int *const p</code></td><td>p is a const pointer to a const int</td><td><strong>no</strong></td><td><strong>no</strong></td></tr>
+        </tbody>
+    </table>
+    <p>The rule: <code>const</code> applies to whatever is immediately to its <strong>left</strong>, or, if nothing is on its left, to what's on its right. So <code>const int *</code> and <code>int const *</code> are identical, and in <code>int *const p</code> the <code>const</code> sits right before the name, locking the pointer itself.</p>
+    <p>The compiler enforces it. This example is meant to fail. Run it and read the error:</p>
+    <script type="text/c" data-expect-error="compile">
+        #include <stdio.h>
+
+        int main(void) {
+            int x = 1, y = 2;
+
+            const int *a = &x;   // pointer to const int
+            a = &y;              // fine: the pointer may move
+            *a = 10;             // ERROR: can't write through a
+
+            int *const b = &x;   // const pointer to int
+            *b = 10;             // fine: the data may change
+            b = &y;              // ERROR: b can't be re-pointed
+
+            printf("%d %d\n", *a, *b);
+            return 0;
+        }
+    </script>
+
+    <h3>Why <code>const</code> pointers matter: function contracts</h3>
+    <p>By far the most common use is in function parameters. A <code>const char *</code> parameter is a promise to the caller: "I will read your string but not modify it." That's why the standard library declares <code>size_t strlen(const char *s)</code> and <code>char *strcpy(char *dest, const char *src)</code>: from the signature alone you can tell which argument gets written.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        // Promises not to modify the string it is given.
+        size_t count_vowels(const char *s) {
+            size_t n = 0;
+            for (; *s != '\0'; s++) {        // moving s is fine; it's not const
+                switch (*s) {
+                    case 'a': case 'e': case 'i': case 'o': case 'u':
+                    case 'A': case 'E': case 'I': case 'O': case 'U':
+                        n++;
+                }
+                // *s = 'x';  would be a compile error
+            }
+            return n;
+        }
+
+        int main(void) {
+            char word[] = "Encyclopaedia";
+            printf("%s has %zu vowels\n", word, count_vowels(word));
+            return 0;
+        }
+    </script>
+    <p>Notice that <code>word</code> isn't <code>const</code> but we passed it to a <code>const char *</code> parameter. Adding <code>const</code> is always allowed implicitly. Removing it requires a cast, and actually modifying an object that was <em>defined</em> <code>const</code> is undefined behaviour. Also note that <code>const int *p</code> only stops you from modifying the int <em>through <code>p</code></em>; the int itself may change by other means.</p>
+
+    <h2><code>void *</code>: the generic pointer</h2>
+    <p>A <code>void *</code> is a pointer to "something, type unknown". Any object pointer converts to <code>void *</code> and back again without losing information, and in C these conversions happen implicitly. You've already met one: <code>malloc</code> returns <code>void *</code>, because it has no idea what you'll store in the block.</p>
+    <script type="text/c" data-static>
+        int *nums = malloc(10 * sizeof *nums);   // void * -> int *, no cast needed in C
+        void *anything = nums;                    // int * -> void *, also implicit
+        int *back = anything;                     // and back again
+    </script>
+    <p>Since the compiler doesn't know what a <code>void *</code> points to, it can't let you use it directly:</p>
+    <ul>
+        <li>You can't dereference it. <code>*anything</code> is an error, because how many bytes would it read?</li>
+        <li>You can't do arithmetic on it in standard C. (GCC allows <code>void *</code> arithmetic as an extension, treating it like <code>char *</code>, but portable code doesn't rely on that.)</li>
+    </ul>
+    <p>To work with the bytes, convert to a typed pointer first. The usual choice for "raw bytes" is <code>unsigned char *</code>, since C lets you inspect any object as an array of <code>unsigned char</code>. Here's a swap that works on <em>any</em> type, because the caller tells it the size. This is the same design as <code>memcpy(void *dest, const void *src, size_t n)</code> and <code>qsort</code>:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        // Swap two objects of any type, size bytes each.
+        void swap_any(void *a, void *b, size_t size) {
+            unsigned char *pa = a;
+            unsigned char *pb = b;
+            for (size_t i = 0; i < size; i++) {
+                unsigned char tmp = pa[i];
+                pa[i] = pb[i];
+                pb[i] = tmp;
+            }
+        }
+
+        struct Point { int x, y; };
+
+        int main(void) {
+            int i1 = 1, i2 = 2;
+            swap_any(&i1, &i2, sizeof i1);
+            printf("ints:    %d %d\n", i1, i2);
+
+            double d1 = 1.5, d2 = -3.25;
+            swap_any(&d1, &d2, sizeof d1);
+            printf("doubles: %g %g\n", d1, d2);
+
+            struct Point p1 = {1, 2}, p2 = {30, 40};
+            swap_any(&p1, &p2, sizeof p1);
+            printf("points:  (%d,%d) (%d,%d)\n", p1.x, p1.y, p2.x, p2.y);
+            return 0;
+        }
+    </script>
+    <div class="callout warn">
+        <span class="callout-title">Generic means unchecked</span>
+        <p>The price of <code>void *</code> is that the compiler stops checking types for you. <code>swap_any(&amp;i1, &amp;d1, sizeof d1)</code> compiles without complaint and writes 8 bytes into a 4-byte int. When you use <code>void *</code>, getting the types and sizes right is your job. (Also, function pointers are a separate family: standard C doesn't guarantee you can store one in a <code>void *</code>.)</p>
+    </div>
+
+    <h2>Function pointers</h2>
+    <p>Compiled functions live in memory too, so they have addresses, and you can store those addresses in variables. A <strong>function pointer</strong> lets you choose <em>which</em> function to call at run time, or hand a function to another function to call later.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int add(int a, int b) { return a + b; }
+        int mul(int a, int b) { return a * b; }
+
+        int main(void) {
+            int (*op)(int, int);   // op is a pointer to a function (int, int) -> int
+
+            op = add;              // a function name decays to a pointer, like an array name
+            printf("add: %d\n", op(6, 7));
+
+            op = &mul;             // the & is optional
+            printf("mul: %d\n", (*op)(6, 7));   // and so is the * when calling
+            return 0;
+        }
+    </script>
+    <p>Read <code>int (*op)(int, int)</code> from the name outwards: <code>op</code> is a pointer (<code>*op</code>) to a function taking <code>(int, int)</code> that returns <code>int</code>. The parentheses around <code>*op</code> are essential: <code>int *op(int, int);</code> declares a <em>function</em> named <code>op</code> that returns an <code>int *</code>. The pointer's type must match the function's signature exactly.</p>
+
+    <h3>Taming the syntax with <code>typedef</code></h3>
+    <p>Function pointer types get unreadable fast, especially as parameters or return types. A <code>typedef</code> gives the type a name:</p>
+    <script type="text/c" data-static>
+        typedef int (*BinOp)(int, int);   // BinOp is "pointer to function (int, int) -> int"
+
+        BinOp op = add;                    // much nicer
+        int apply_twice(BinOp f, int x);   // than: int apply_twice(int (*f)(int, int), int x);
+    </script>
+
+    <h3>Callbacks</h3>
+    <p>Passing a function pointer as an argument is called a <strong>callback</strong>: you write the general algorithm once, and the caller plugs in the specific behaviour. This function counts the elements that pass some test, and the test is a parameter:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        typedef int (*Predicate)(int);
+
+        size_t count_if(const int *a, size_t n, Predicate test) {
+            size_t count = 0;
+            for (size_t i = 0; i < n; i++) {
+                if (test(a[i])) {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        int is_even(int x)     { return x % 2 == 0; }
+        int is_negative(int x) { return x < 0; }
+        int is_big(int x)      { return x > 100; }
+
+        int main(void) {
+            int data[] = { 4, -7, 150, 0, -2, 33, 1000 };
+            size_t n = sizeof data / sizeof data[0];
+
+            printf("even:     %zu\n", count_if(data, n, is_even));
+            printf("negative: %zu\n", count_if(data, n, is_negative));
+            printf("big:      %zu\n", count_if(data, n, is_big));
+            return 0;
+        }
+    </script>
+
+    <h3>Sorting anything with <code>qsort</code></h3>
+    <p>The standard library's <code>qsort</code> (in <code>&lt;stdlib.h&gt;</code>) combines both ideas of this lesson: <code>void *</code> so it can sort any type, and a function pointer so <em>you</em> decide the order:</p>
+    <script type="text/c" data-static>
+        void qsort(void *base, size_t count, size_t size,
+                   int (*compare)(const void *, const void *));
+    </script>
+    <p>You give it the array, how many elements, how big each one is, and a <strong>comparator</strong>. <code>qsort</code> calls the comparator with pointers to two elements, and it must return a negative number if the first should come before the second, zero if they're equal, and a positive number if the first should come after.</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <string.h>
+
+        int cmp_int(const void *a, const void *b) {
+            int x = *(const int *)a;
+            int y = *(const int *)b;
+            return (x > y) - (x < y);      // -1, 0 or 1, and it can't overflow
+        }
+
+        // The elements are char *, so qsort hands us pointers TO char *.
+        int cmp_str(const void *a, const void *b) {
+            const char *const *sa = a;
+            const char *const *sb = b;
+            return strcmp(*sa, *sb);
+        }
+
+        int main(void) {
+            int nums[] = { 42, -5, 17, 0, 99, -5, 8 };
+            size_t n = sizeof nums / sizeof nums[0];
+            qsort(nums, n, sizeof nums[0], cmp_int);
+            for (size_t i = 0; i < n; i++) printf("%d ", nums[i]);
+            printf("\n");
+
+            const char *words[] = { "pear", "apple", "fig", "banana" };
+            size_t w = sizeof words / sizeof words[0];
+            qsort(words, w, sizeof words[0], cmp_str);
+            for (size_t i = 0; i < w; i++) printf("%s ", words[i]);
+            printf("\n");
+            return 0;
+        }
+    </script>
+    <div class="callout danger">
+        <span class="callout-title">Don't write <code>return x - y;</code></span>
+        <p>You'll see comparators that return <code>*(int *)a - *(int *)b</code>. It looks clever and usually works, until it doesn't: with <code>x = INT_MAX</code> and <code>y = -1</code> the subtraction overflows, which is undefined behaviour and in practice yields a negative number, so the sort silently comes out wrong. <code>(x &gt; y) - (x &lt; y)</code> is just as short and always correct. To sort in descending order, swap the roles: <code>(x &lt; y) - (x &gt; y)</code>.</p>
+    </div>
+    <div class="callout warn">
+        <span class="callout-title">The string-comparator trap</span>
+        <p>When sorting an array of <code>char *</code>, each element <em>is</em> a pointer, so the comparator receives a pointer to a pointer. Writing <code>strcmp(a, b)</code> directly compiles (both are <code>void *</code>) but compares the bytes of the pointers themselves, as if they were text. Always ask: "what is one element of my array?" The comparator gets a pointer to <em>that</em>.</p>
+    </div>
+
+    <h3>Dispatch tables</h3>
+    <p>An <strong>array of function pointers</strong> lets you pick behaviour by looking it up in a table instead of writing a long <code>if</code>/<code>switch</code>. Here's a tiny calculator. Edit the input box and run it again:</p>
+    <script type="text/c" data-stdin="6 * 7\n10 / 4\n2 - 9\n2 ^ 3">
+        #include <stdio.h>
+
+        typedef double (*BinOp)(double, double);
+
+        double add(double a, double b) { return a + b; }
+        double sub(double a, double b) { return a - b; }
+        double mul(double a, double b) { return a * b; }
+        double divide(double a, double b) { return a / b; }
+
+        struct Operator {
+            char symbol;
+            BinOp fn;
+        };
+
+        static const struct Operator ops[] = {
+            { '+', add }, { '-', sub }, { '*', mul }, { '/', divide },
+        };
+
+        int main(void) {
+            double a, b;
+            char sym;
+            size_t n_ops = sizeof ops / sizeof ops[0];
+
+            while (scanf("%lf %c %lf", &a, &sym, &b) == 3) {
+                BinOp fn = NULL;
+                for (size_t i = 0; i < n_ops; i++) {
+                    if (ops[i].symbol == sym) {
+                        fn = ops[i].fn;
+                        break;
+                    }
+                }
+                if (fn == NULL) {
+                    printf("unknown operator '%c'\n", sym);
+                } else {
+                    printf("%g %c %g = %g\n", a, sym, b, fn(a, b));
+                }
+            }
+            return 0;
+        }
+    </script>
+    <p>Adding an operator is now a one-line change to the table. The same technique powers command interpreters ("look up the command name, call its handler"), state machines and plugin systems. Function pointers are also how C programs build their own kind of polymorphism: a struct holding function pointers is essentially a hand-made interface.</p>
+
+    <h2>Exercises</h2>
+
+    <div class="exercise" data-id="advptr-make-array">
+        <h3>Allocate through an out-parameter</h3>
+        <p>Write <code>void make_array(int **out, int n)</code>. It should allocate an array of <code>n</code> ints, fill it with the squares <code>1, 4, 9, ...</code>, and store the array's address in the caller's pointer through <code>out</code>. If <code>malloc</code> fails, set the caller's pointer to <code>NULL</code>. The provided <code>main</code> should then print <code>1 4 9 16 25 36</code>.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            void make_array(int **out, int n) {
+                // TODO: allocate n ints, fill with (i+1)*(i+1),
+                // and store the address in the caller's pointer.
+            }
+
+            int main(void) {
+                int *squares = NULL;
+                int n = 6;
+                make_array(&squares, n);
+                if (squares == NULL) {
+                    printf("allocation failed\n");
+                    return 1;
+                }
+                for (int i = 0; i < n; i++) {
+                    printf("%d ", squares[i]);
+                }
+                printf("\n");
+                free(squares);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            1 4 9 16 25 36
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            void make_array(int **out, int n) {
+                int *a = malloc((size_t)n * sizeof *a);
+                if (a != NULL) {
+                    for (int i = 0; i < n; i++) {
+                        a[i] = (i + 1) * (i + 1);
+                    }
+                }
+                *out = a;   // NULL if malloc failed
+            }
+
+            int main(void) {
+                int *squares = NULL;
+                int n = 6;
+                make_array(&squares, n);
+                if (squares == NULL) {
+                    printf("allocation failed\n");
+                    return 1;
+                }
+                for (int i = 0; i < n; i++) {
+                    printf("%d ", squares[i]);
+                }
+                printf("\n");
+                free(squares);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Build the array in a local <code>int *a = malloc(n * sizeof *a);</code>, fill it if it isn't <code>NULL</code>, then do <code>*out = a;</code>. Writing <code>out = a</code> would only change the local parameter (and wouldn't type-check anyway).</p></details>
+    </div>
+
+    <div class="exercise" data-id="advptr-apply">
+        <h3>Apply a function to every element</h3>
+        <p>Write <code>void apply(int *a, size_t n, int (*f)(int))</code>, which replaces every element <code>a[i]</code> with <code>f(a[i])</code>. Also write <code>int add_one(int x)</code>. Then, in <code>main</code>, apply <code>twice</code> to the array, print it, apply <code>add_one</code>, and print it again, so the output is exactly:</p>
+        <pre>2 4 6 8 10
+3 5 7 9 11</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int twice(int x) { return 2 * x; }
+
+            // TODO: write add_one
+
+            // TODO: write apply(int *a, size_t n, int (*f)(int))
+
+            void print_array(const int *a, size_t n) {
+                for (size_t i = 0; i < n; i++) {
+                    printf("%d ", a[i]);
+                }
+                printf("\n");
+            }
+
+            int main(void) {
+                int nums[] = { 1, 2, 3, 4, 5 };
+                size_t n = sizeof nums / sizeof nums[0];
+
+                // TODO: apply twice, print, apply add_one, print
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            2 4 6 8 10
+            3 5 7 9 11
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int twice(int x) { return 2 * x; }
+
+            int add_one(int x) { return x + 1; }
+
+            void apply(int *a, size_t n, int (*f)(int)) {
+                for (size_t i = 0; i < n; i++) {
+                    a[i] = f(a[i]);
+                }
+            }
+
+            void print_array(const int *a, size_t n) {
+                for (size_t i = 0; i < n; i++) {
+                    printf("%d ", a[i]);
+                }
+                printf("\n");
+            }
+
+            int main(void) {
+                int nums[] = { 1, 2, 3, 4, 5 };
+                size_t n = sizeof nums / sizeof nums[0];
+
+                apply(nums, n, twice);
+                print_array(nums, n);
+                apply(nums, n, add_one);
+                print_array(nums, n);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Inside <code>apply</code>, call the function pointer like a normal function: <code>a[i] = f(a[i]);</code>. To pass a function, use its name without parentheses: <code>apply(nums, n, twice);</code>. Writing <code>twice()</code> would try to <em>call</em> it.</p></details>
+    </div>
+
+    <div class="exercise" data-id="advptr-qsort-structs">
+        <h3>Sort a leaderboard with <code>qsort</code></h3>
+        <p>Write the comparator <code>by_score</code> so that <code>qsort</code> orders players by <strong>score, highest first</strong>, and players with equal scores <strong>alphabetically by name</strong>. Don't use subtraction to compare the scores.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <stdlib.h>
+            #include <string.h>
+
+            struct Player {
+                const char *name;
+                int score;
+            };
+
+            int by_score(const void *a, const void *b) {
+                // TODO: convert a and b to const struct Player *,
+                // compare scores (descending), then names (ascending).
+                return 0;
+            }
+
+            int main(void) {
+                struct Player players[] = {
+                    { "Mia", 72 }, { "Ben", 90 }, { "Ava", 72 }, { "Zoe", 85 }, { "Leo", 90 },
+                };
+                size_t n = sizeof players / sizeof players[0];
+
+                qsort(players, n, sizeof players[0], by_score);
+
+                for (size_t i = 0; i < n; i++) {
+                    printf("%s %d\n", players[i].name, players[i].score);
+                }
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            Ben 90
+            Leo 90
+            Zoe 85
+            Ava 72
+            Mia 72
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <stdlib.h>
+            #include <string.h>
+
+            struct Player {
+                const char *name;
+                int score;
+            };
+
+            int by_score(const void *a, const void *b) {
+                const struct Player *pa = a;
+                const struct Player *pb = b;
+                if (pa->score != pb->score) {
+                    // descending: the higher score comes first
+                    return (pa->score < pb->score) - (pa->score > pb->score);
+                }
+                return strcmp(pa->name, pb->name);
+            }
+
+            int main(void) {
+                struct Player players[] = {
+                    { "Mia", 72 }, { "Ben", 90 }, { "Ava", 72 }, { "Zoe", 85 }, { "Leo", 90 },
+                };
+                size_t n = sizeof players / sizeof players[0];
+
+                qsort(players, n, sizeof players[0], by_score);
+
+                for (size_t i = 0; i < n; i++) {
+                    printf("%s %d\n", players[i].name, players[i].score);
+                }
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Each element is a <code>struct Player</code>, so the comparator gets pointers to structs: <code>const struct Player *pa = a;</code>. For descending order, return a negative number when <code>pa</code>'s score is <em>bigger</em>: <code>(pa-&gt;score &lt; pb-&gt;score) - (pa-&gt;score &gt; pb-&gt;score)</code>. If the scores are equal, return <code>strcmp(pa-&gt;name, pb-&gt;name)</code>.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "Given <code>int x = 3; int *p = &amp;x; int **pp = &amp;p;</code>, which expression has type <code>int *</code>?",
+        "choices": ["<code>**pp</code>", "<code>*pp</code>", "<code>&amp;pp</code>", "<code>pp</code>"],
+        "answer": 1, "explain": "Each <code>*</code> removes one level. <code>pp</code> is <code>int **</code>, <code>*pp</code> is <code>int *</code> (it <em>is</em> <code>p</code>), and <code>**pp</code> is <code>int</code>. <code>&amp;pp</code> would be <code>int ***</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int a = 1, b = 2;\nint *p = &a;\nint **pp = &p;\n*pp = &b;\n**pp = 5;\nprintf(\"%d %d\", a, b);",
+        "answer": "1 5", "explain": "<code>*pp = &amp;b</code> re-points <code>p</code> at <code>b</code>. Then <code>**pp</code> follows <code>pp</code> to <code>p</code> and <code>p</code> to <code>b</code>, so only <code>b</code> becomes 5." },
+      { "q": "Why doesn't <code>void init(int *p) { p = malloc(sizeof *p); }</code> change the caller's pointer?",
+        "choices": ["<code>p</code> is a copy of the caller's pointer, so assigning to it only changes the copy", "<code>malloc</code> memory is freed when the function returns", "You must cast the result of <code>malloc</code>", "Pointers can't be assigned inside functions"],
+        "answer": 0, "explain": "All arguments are passed by value. To change the caller's <code>int *</code>, the function needs its address: <code>void init(int **pp) { *pp = malloc(sizeof **pp); }</code>. As written, it also leaks the block." },
+      { "q": "Which declaration lets you change the <code>int</code> through <code>p</code>, but not make <code>p</code> point somewhere else?",
+        "choices": ["<code>const int *p</code>", "<code>int const *p</code>", "<code>const int *const p</code>", "<code>int *const p</code>"],
+        "answer": 3, "explain": "Read right to left: <code>int *const p</code> is \"p is a const pointer to int\". The pointer is locked; the data is not. The first two are the same thing (pointer to const int), and the third locks both." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int twice(int x) { return 2 * x; }\nint inc(int x) { return x + 1; }\n\n/* inside main: */\nint (*f[])(int) = { twice, inc };\nprintf(\"%d\", f[1](f[0](5)));",
+        "answer": "11", "explain": "<code>f</code> is an array of function pointers. <code>f[0](5)</code> calls <code>twice</code>, giving 10. <code>f[1](10)</code> calls <code>inc</code>, giving 11." },
+      { "q": "What's wrong with the comparator <code>return *(const int *)a - *(const int *)b;</code>?",
+        "choices": ["Nothing, it's the recommended idiom", "It sorts in descending order", "The subtraction can overflow for large values, giving the wrong sign", "Comparators must return only -1, 0 or 1"],
+        "answer": 2, "explain": "For example <code>INT_MAX - (-1)</code> overflows: undefined behaviour, and in practice a negative result that puts the elements in the wrong order. <code>(x &gt; y) - (x &lt; y)</code> is always correct. Comparators may return <em>any</em> negative or positive value, not just -1 and 1." },
+      { "q": "This program is run as <code>./prog one two</code>. What does it print?", "type": "output",
+        "code": "int main(int argc, char *argv[]) {\n    printf(\"%d %s\", argc, argv[argc - 1]);\n    return 0;\n}",
+        "answer": "3 two", "explain": "<code>argc</code> counts the program name too, so it's 3: <code>argv[0]</code> is <code>\"./prog\"</code>, <code>argv[1]</code> is <code>\"one\"</code>, and <code>argv[2]</code> is <code>\"two\"</code>." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
 </body>
 </html>

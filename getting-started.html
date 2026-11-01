@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Getting Started · Learn C</title>
+    <meta name="description" content="What C is, your first program line by line, how compilation works, reading compiler errors, and printf basics.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>Getting Started</h1>
+    <p class="lead">C is small, fast, and close to the machine. It's the language underneath operating systems, databases, game engines and the interpreters for most other languages. In this lesson you'll write your first program, see what actually happens when you build it, and learn to read the compiler's complaints.</p>
+
+    <h2>What C is, and why learn it</h2>
+    <p>C was created by Dennis Ritchie at Bell Labs in the early 1970s to write the Unix operating system. Half a century later it's still everywhere: the Linux kernel, the Python and Ruby interpreters, SQLite, Git, the firmware in your router and your microwave. When something has to be fast, small, or talk directly to hardware, it's very often written in C.</p>
+    <p>C is a <strong>compiled</strong> language. You write human-readable source code in a <code>.c</code> file, and a program called a <strong>compiler</strong> translates it into machine code that your CPU runs directly. There's no interpreter or virtual machine in between, which is a large part of why C is fast.</p>
+    <p>C is also a <em>small</em> language. There are only a few dozen keywords, and almost nothing happens behind your back: no garbage collector, no hidden copies, no exceptions. That makes it a superb language for learning how computers really work, because what you write is close to what the machine does. The flip side is that C trusts you completely. It won't stop you from reading past the end of an array or using memory you've already given back. Much of this course is about understanding those sharp edges so they never cut you.</p>
+
+    <div class="callout tip">
+        <span class="callout-title">Which C?</span>
+        <p>C is defined by an ISO standard that gets revised every so often: C89, C99, C11, C17, C23. This course targets <strong>C17</strong>, and every example here is compiled with <code>-std=c17 -Wall -Wextra</code>, which turns on a sensible set of warnings. Where something is <em>undefined</em> or <em>implementation-defined</em> by the standard, we'll say so explicitly.</p>
+    </div>
+
+    <h2>Hello, world</h2>
+    <p>By long tradition, the first program you write in a new language prints a greeting. Press <strong>Run</strong>:</p>
+
+    <script type="text/c" data-title="hello.c">
+        #include <stdio.h>
+
+        int main(void) {
+            printf("Hello, world!\n");
+            return 0;
+        }
+    </script>
+
+    <p>Six lines, and every one of them matters. Let's go through them.</p>
+
+    <h3><code>#include &lt;stdio.h&gt;</code></h3>
+    <p>Lines starting with <code>#</code> are instructions to the <strong>preprocessor</strong>, which runs before the compiler proper. <code>#include</code> means "paste the contents of this file here". <code>stdio.h</code> is the <em>standard input/output header</em>: it tells the compiler that a function called <code>printf</code> exists, what arguments it takes, and what it returns. Without it, the compiler doesn't know what <code>printf</code> is.</p>
+    <p>The angle brackets mean "look in the system's standard header directories". You'll later write your own headers and include them with quotes, like <code>#include "mylib.h"</code>.</p>
+
+    <h3><code>int main(void)</code></h3>
+    <p>Every C program has exactly one function called <code>main</code>, and that's where execution begins. The <code>int</code> before the name says <code>main</code> gives back an integer when it finishes. The <code>(void)</code> says it takes no arguments. (You'll sometimes see <code>int main()</code>; in C17, empty parentheses mean something subtly different from <code>(void)</code>, so we always write <code>void</code>.)</p>
+    <p>The curly braces <code>{ }</code> mark the <strong>body</strong> of the function: the statements that run when it's called.</p>
+
+    <h3><code>printf("Hello, world!\n");</code></h3>
+    <p>This <strong>calls</strong> the function <code>printf</code> ("print formatted") with one argument, the <strong>string literal</strong> <code>"Hello, world!\n"</code>. Text in double quotes is a string. <code>printf</code> writes it to <em>standard output</em>, which is normally your terminal (here, the output panel).</p>
+    <p>The <code>\n</code> is an <strong>escape sequence</strong>: a backslash followed by a character, standing for something you can't easily type inside a string. <code>\n</code> means newline. <code>printf</code> does <em>not</em> add a newline for you, so without it the next thing printed would continue on the same line. A few other escapes you'll meet:</p>
+    <table>
+        <thead><tr><th>Escape</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td><code>\n</code></td><td>newline</td></tr>
+            <tr><td><code>\t</code></td><td>tab</td></tr>
+            <tr><td><code>\"</code></td><td>a literal double quote inside a string</td></tr>
+            <tr><td><code>\\</code></td><td>a literal backslash</td></tr>
+        </tbody>
+    </table>
+    <p>Finally, the <strong>semicolon</strong>. In C, a statement ends with <code>;</code>. Line breaks mean nothing to the compiler; the semicolon is what tells it one statement is over. Forgetting one is the most common error you'll ever make, and we'll deliberately make it below.</p>
+
+    <h3><code>return 0;</code></h3>
+    <p>This ends <code>main</code> and hands the value <code>0</code> back to whoever started the program, usually the operating system or your shell. By convention, <code>0</code> means "success" and any other value means something went wrong. Scripts and build tools rely on this, so it's a good habit to return it explicitly. (Strictly, C lets you leave it out of <code>main</code> only, and then behaves as if you'd written <code>return 0;</code>, but being explicit is clearer.)</p>
+
+    <h2>Try changing it</h2>
+    <p>The examples on this site are editable. Change the message, add a second <code>printf</code>, remove a <code>\n</code> and see what happens to the output, then press Run again. You can't break anything; the reset button puts the original back.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            printf("Roses are red,\n");
+            printf("Violets are blue,\n");
+            printf("C has no garbage collector, ");
+            printf("so it's up to you.\n");
+            return 0;
+        }
+    </script>
+    <p>Notice the third and fourth lines of output come out joined: the third <code>printf</code> has no <code>\n</code>, so the fourth one carries on from where it stopped.</p>
+
+    <h2>From source code to running program</h2>
+    <p>When you press Run, quite a lot happens. Your <code>.c</code> file is plain text; your CPU can't execute it. Building it into a program is a pipeline of three main stages:</p>
+    <table>
+        <thead><tr><th>Stage</th><th>What it does</th><th>Produces</th></tr></thead>
+        <tbody>
+            <tr><td><strong>1. Preprocess</strong></td><td>Handles every <code>#</code> line: pastes in <code>#include</code>d headers, expands macros, strips comments.</td><td>One big expanded C source file</td></tr>
+            <tr><td><strong>2. Compile</strong></td><td>Checks your code against the rules of C, reports errors and warnings, and translates it into machine code for your CPU.</td><td>An <em>object file</em> (<code>hello.o</code>)</td></tr>
+            <tr><td><strong>3. Link</strong></td><td>Joins your object file with the code for library functions you used, like <code>printf</code>, which lives in the C standard library.</td><td>An <em>executable</em> (<code>hello</code>)</td></tr>
+        </tbody>
+    </table>
+    <p>On your own machine, with a compiler such as <code>gcc</code> or <code>clang</code> installed, one command runs all three stages:</p>
+    <pre class="terminal">gcc -std=c17 -Wall -Wextra hello.c -o hello
+./hello
+Hello, world!</pre>
+    <p><code>-o hello</code> names the output file (without it you get the oddly named <code>a.out</code>). <code>-Wall -Wextra</code> turns on warnings, which you always want. <code>./hello</code> runs the program from the current directory. On Windows the executable would be <code>hello.exe</code>.</p>
+    <p>The <strong>Run</strong> button on this site does exactly the same thing, just remotely: it sends your code to <a href="https://godbolt.org">Compiler Explorer</a>, which compiles it with gcc using those same flags, runs the program, and sends back the compiler messages and the output.</p>
+
+    <div class="callout tip">
+        <span class="callout-title">Compile time vs run time</span>
+        <p>This distinction comes up constantly. <strong>Compile-time</strong> errors are found by the compiler before your program ever runs: a missing semicolon, a misspelled function name. <strong>Run-time</strong> errors happen while the program is running: dividing by zero, reading memory you shouldn't. The compiler can catch the first kind for you, so treat its warnings as free bug reports.</p>
+    </div>
+
+    <h2>Comments</h2>
+    <p>Comments are notes for humans. The preprocessor removes them before compilation, so they have no effect on your program. C has two styles:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        /* A block comment can span
+           several lines. It runs until the closing star-slash. */
+
+        int main(void) {
+            // A line comment runs to the end of the line.
+            printf("Comments don't print.\n"); // they can follow code, too
+            return 0;
+        }
+    </script>
+    <p>Good comments explain <em>why</em> the code does something, not <em>what</em> it does; the code already says what. <code>// add 1 to count</code> above <code>count = count + 1;</code> is noise. <code>// skip the header row</code> is useful. One gotcha: block comments don't nest, so <code>/* outer /* inner */ still outer? */</code> ends at the first <code>*/</code> and leaves a syntax error behind.</p>
+
+    <h2>Reading a compiler error</h2>
+    <p>Everyone writes code that doesn't compile. Learning to read the error quickly is one of the most valuable skills you can build. The program below is missing a semicolon. Run it <em>before</em> fixing it and look at the message:</p>
+    <script type="text/c" data-expect-error="compile" data-title="broken.c">
+        #include <stdio.h>
+
+        int main(void) {
+            printf("Something is missing...\n")
+            return 0;
+        }
+    </script>
+    <p>gcc will say something like:</p>
+    <pre class="terminal">broken.c: In function 'main':
+broken.c:4:40: error: expected ';' before 'return'
+    4 |     printf("Something is missing...\n")
+      |                                        ^
+      |                                        ;
+    5 |     return 0;
+      |     ~~~~~~</pre>
+    <p>Here's how to read it:</p>
+    <ul>
+        <li><strong><code>broken.c:4:40</code></strong> is the file, line and column where the compiler noticed the problem. (On this site the file is called <code>&lt;source&gt;</code>, which is what Compiler Explorer names it.)</li>
+        <li><strong><code>error:</code></strong> means the program can't be built. A <code>warning:</code> means it <em>can</em> be built, but the compiler thinks something is probably wrong.</li>
+        <li><strong>The message</strong> says what it expected: a <code>;</code> before <code>return</code>.</li>
+        <li><strong>The caret</strong> <code>^</code> points at the spot, and gcc even suggests the fix.</li>
+    </ul>
+    <p>Now fix it: add the semicolon at the end of the <code>printf</code> line and run again.</p>
+
+    <div class="callout warn">
+        <span class="callout-title">The error is often reported on the next line</span>
+        <p>The compiler only realises a semicolon is missing when it sees something that can't continue the statement, here <code>return</code> on line 5. So the reported location is sometimes <em>after</em> the real mistake. If a line looks fine, check the end of the one before it.</p>
+    </div>
+    <p>Two more habits that save hours:</p>
+    <ul>
+        <li><strong>Fix the first error first.</strong> One mistake can confuse the compiler into reporting a cascade of bogus errors after it. Fix the top one, recompile, and many of the rest often vanish.</li>
+        <li><strong>Don't ignore warnings.</strong> A warning is the compiler telling you your code is legal but probably not what you meant. In C, "legal but wrong" is where the nastiest bugs live.</li>
+    </ul>
+
+    <h2>Printing numbers with <code>printf</code></h2>
+    <p>The <em>f</em> in <code>printf</code> stands for <em>formatted</em>. The first argument is a <strong>format string</strong>, and it can contain <strong>conversion specifiers</strong>, placeholders starting with <code>%</code>, that get replaced by the extra arguments, in order. <code>%d</code> means "print an <code>int</code> as a decimal number":</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            printf("I am %d years old.\n", 30);
+            printf("%d + %d = %d\n", 2, 3, 2 + 3);
+            printf("A week has %d hours.\n", 7 * 24);
+            return 0;
+        }
+    </script>
+    <p>Notice that <code>2 + 3</code> and <code>7 * 24</code> are computed first, and <code>printf</code> receives the results. Each <code>%d</code> consumes the next argument. To print a literal percent sign, write <code>%%</code>:</p>
+    <script type="text/c" data-static>
+        printf("Progress: %d%%\n", 75);   // prints: Progress: 75%
+    </script>
+
+    <div class="callout danger">
+        <span class="callout-title">The specifiers must match the arguments</span>
+        <p><code>printf</code> trusts you to pass one argument of the right type for each specifier. Too few arguments (<code>printf("%d %d\n", 1);</code>) or the wrong type (<code>printf("%d\n", 3.5);</code>) is <strong>undefined behaviour</strong>: it may print garbage, or worse. Compilers warn about this with <code>-Wall</code>, which is one more reason to keep warnings on. You'll meet specifiers for other types (<code>%f</code>, <code>%c</code>, <code>%s</code>…) in the next lesson.</p>
+    </div>
+
+    <div class="exercise" data-id="gs-business-card">
+        <h3>Your business card</h3>
+        <p>Make the program print exactly these three lines. Use three separate <code>printf</code> calls, and get the spacing and punctuation exactly right; the checker compares character by character.</p>
+<pre class="terminal">Name: Ada Lovelace
+Job: Programmer
+Motto: "Hello, world!"</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                printf("Name: Ada Lovelace\n");
+                // TODO: print the other two lines
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            Name: Ada Lovelace
+            Job: Programmer
+            Motto: "Hello, world!"
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                printf("Name: Ada Lovelace\n");
+                printf("Job: Programmer\n");
+                printf("Motto: \"Hello, world!\"\n");
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>A plain <code>"</code> would end the string early. To put a double quote <em>inside</em> a string, escape it as <code>\"</code>. And don't forget the <code>\n</code> at the end of each line.</p></details>
+    </div>
+
+    <div class="exercise" data-id="gs-seconds-in-a-day">
+        <h3>Let C do the arithmetic</h3>
+        <p>Print how many seconds are in a day, using <code>%d</code> and letting C compute <code>24 * 60 * 60</code> for you. The output must be exactly:</p>
+<pre class="terminal">A day has 86400 seconds.</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                // print "A day has ... seconds." with the number computed by C
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            A day has 86400 seconds.
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                printf("A day has %d seconds.\n", 24 * 60 * 60);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Put <code>%d</code> where the number goes in the format string, then pass the expression as a second argument: <code>printf("... %d ...\n", 24 * 60 * 60);</code></p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "Which function does every C program start executing in?",
+        "choices": ["<code>start</code>", "<code>printf</code>", "<code>init</code>", "<code>main</code>"],
+        "answer": 3, "explain": "Execution begins in <code>main</code>. Every C program has exactly one." },
+      { "q": "What does <code>#include &lt;stdio.h&gt;</code> do?",
+        "choices": ["Pastes in the declarations for standard I/O functions like <code>printf</code>", "Downloads the stdio library from the internet", "Makes the program run faster", "Tells the linker to skip the standard library"],
+        "answer": 0, "explain": "It's a preprocessor directive that copies the header's contents into your file, so the compiler knows <code>printf</code> exists and how to call it." },
+      { "q": "What does this print?", "type": "output",
+        "code": "printf(\"%d\", 6 * 7);",
+        "answer": "42", "explain": "<code>6 * 7</code> is computed to <code>42</code>, and <code>%d</code> prints it as a decimal integer." },
+      { "q": "What does this print? (Write it all on one line.)", "type": "output",
+        "code": "printf(\"ab\");\nprintf(\"cd\");",
+        "answer": "abcd", "explain": "<code>printf</code> never adds a newline on its own, so the second call continues right where the first stopped." },
+      { "q": "Which stage of the build joins your code with the code for <code>printf</code> from the standard library?",
+        "choices": ["Preprocessing", "Compiling", "Linking", "Running"],
+        "answer": 2, "explain": "The linker combines your object file with library code to produce the final executable." },
+      { "q": "gcc reports <code>error: expected ';' before 'return'</code> on line 5. Where is the mistake most likely to be?",
+        "choices": ["Inside the <code>return</code> keyword", "At the end of line 4", "In <code>#include &lt;stdio.h&gt;</code>", "The compiler is confused; ignore it"],
+        "answer": 1, "explain": "The compiler notices a missing semicolon only when it reaches the next token, so the real mistake is usually at the end of the previous line." },
+      { "q": "What does this print?", "type": "output",
+        "code": "printf(\"%d%%\", 50 + 25);",
+        "answer": "75%", "explain": "<code>%d</code> prints 75 and <code>%%</code> prints a single literal percent sign." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

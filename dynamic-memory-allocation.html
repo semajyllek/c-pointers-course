@@ -3,113 +3,544 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Memory Allocation</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Dynamic Memory · Learn C</title>
+    <meta name="description" content="Stack vs heap, malloc, calloc, realloc and free, growable arrays, and how to avoid leaks, double frees and use-after-free.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
 </head>
 <body>
-    <header>
-        <h1>Dynamic Memory Allocation in C</h1>
-        <a href="index.html">Back to Home</a>
-        <a href="introduction.html">Introduction</a>
-        <a href="pointer-arithmetic.html">Pointer Arithmetic</a>
-        <a href="pointers-and-arrays.html">Pointers and Arrays</a>
-        <a href="pointers-and-functions.html">Pointers and Functions</a>
-    </header>
-    <main>
-        <section>
-            <h2>Understanding Dynamic Memory Allocation</h2>
-            <p>Dynamic memory allocation allows you to allocate memory at runtime, providing flexibility in memory management.</p>
-            
-            <h3>Common Functions</h3>
-            <ul>
-                <li><strong>malloc:</strong> Allocates a specified number of bytes.</li>
-                <li><strong>calloc:</strong> Allocates space for an array of elements and initializes them to zero.</li>
-                <li><strong>realloc:</strong> Resizes previously allocated memory.</li>
-                <li><strong>free:</strong> Frees previously allocated memory.</li>
-            </ul>
-            
-            <h3>Example: Dynamic Array Allocation</h3>
-            <pre><code>
-#include &lt;stdio.h&gt;
-#include &lt;stlib.h&gt;
+<main>
+    <h1>Dynamic Memory</h1>
+    <p class="lead">So far, every variable you've made has had its size fixed when you wrote the code and its lifetime tied to the function it lives in. Real programs need more: a list as long as the user's input, or data that outlives the function that created it. That's what the heap is for. You ask for memory with <code>malloc</code>, and you give it back with <code>free</code>. In between, its care is entirely your job.</p>
 
-int main() {
-    int n;
-    printf("Enter the number of elements: ");
-    scanf("%d", &n);
-    
-    // Allocate memory for n integers
-    int *arr = (int *)malloc(n * sizeof(int));
-    
-    if (arr == NULL) {
-        printf("Memory allocation failed!\n");
-        return 1; // Exit if allocation failed
-    }
+    <h2>Stack vs heap</h2>
+    <p>Your program's memory is divided into regions. Two matter here:</p>
+    <ul>
+        <li>The <strong>stack</strong> holds local variables. Each function call pushes a frame; returning pops it. It's fast and automatic, which is exactly why returning a pointer to a local is a bug (you saw that last lesson). It's also fairly small, often 1–8 MB in total.</li>
+        <li>The <strong>heap</strong> is a large pool you manage by hand. Memory you get from it stays allocated until you explicitly free it, no matter which functions return in the meantime. Its size is limited mostly by your machine's memory.</li>
+    </ul>
+    <table>
+        <thead><tr><th></th><th>Stack (local variables)</th><th>Heap (<code>malloc</code>)</th></tr></thead>
+        <tbody>
+            <tr><td>Lifetime</td><td>until the enclosing function returns</td><td>until you call <code>free</code></td></tr>
+            <tr><td>Size decided</td><td>when you write the code*</td><td>at run time, any amount</td></tr>
+            <tr><td>Typical capacity</td><td>a few megabytes</td><td>gigabytes</td></tr>
+            <tr><td>Who cleans up</td><td>the compiler, automatically</td><td>you</td></tr>
+            <tr><td>If you get it wrong</td><td>dangling pointers, stack overflow</td><td>leaks, double frees, use-after-free</td></tr>
+        </tbody>
+    </table>
+    <p>* C99 added <em>variable-length arrays</em> (<code>int a[n];</code> with a run-time <code>n</code>), but they live on the stack, so a big <code>n</code> overflows it with no way to detect failure, and C11 made them optional. For anything whose size comes from input, use the heap.</p>
 
-    // Initialize and display the array
-    for (int i = 0; i < n; i++) {
-        arr[i] = i + 1; // Initialize with values
-        printf("%d ", arr[i]);
-    }
-    
-    // Free the allocated memory
-    free(arr);
-    return 0;
-}
-            </code></pre>
-            
-            <h3>Best Practices</h3>
-            <p>Always check if the memory allocation was successful. Additionally, remember to free any dynamically allocated memory to prevent memory leaks.</p>
-        </section>
+    <h2><code>malloc</code>: asking for memory</h2>
+    <p><code>malloc</code> (from <code>&lt;stdlib.h&gt;</code>) takes a number of <strong>bytes</strong> and returns a pointer to a fresh block of at least that size, or <code>NULL</code> if it can't. Its return type is <code>void *</code>, a "pointer to anything", which C converts to your pointer type automatically.</p>
 
-        <section>
-            <h2>Quiz: Dynamic Memory Allocation</h2>
-            <div id="quiz">
-                <p>1. What does the function <code>malloc</code> do?</p>
-                <label for="q1">
-                    <input type="radio" name="q1" value="Allocates memory"> Allocates memory<br>
-                    <input type="radio" name="q1" value="Frees memory"> Frees memory<br>
-                    <input type="radio" name="q1" value="Resizes memory"> Resizes memory<br>
-                </label>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stdlib.h>
 
-                <p>2. Why should you check if the return value of <code>malloc</code> is NULL?</p>
-                <label for="q2">
-                    <input type="radio" name="q2" value="Memory allocation might fail"> Memory allocation might fail<br>
-                    <input type="radio" name="q2" value="It's not necessary"> It's not necessary<br>
-                    <input type="radio" name="q2" value="All memory allocations succeed"> All memory allocations succeed<br>
-                </label>
+        int main(void) {
+            int n = 5;
+            int *a = malloc(n * sizeof *a);   // room for 5 ints
+            if (a == NULL) {
+                fprintf(stderr, "out of memory\n");
+                return 1;
+            }
 
-				<p>3. What does <code>free</code> do?</p>
-                <label for="q3">
-                    <input type="radio" name="q3" value="Frees allocated memory"> Frees allocated memory<br>
-                    <input type="radio" name="q3" value="Allocates memory"> Allocates memory<br>
-                    <input type="radio" name="q3" value="Does nothing"> Does nothing<br>
-                </label>
+            for (int i = 0; i < n; i++) {
+                a[i] = i * 100;               // use it exactly like an array
+            }
+            for (int i = 0; i < n; i++) {
+                printf("%d ", a[i]);
+            }
+            printf("\n");
 
-                <p>4. When should you use <code>realloc</code>?</p>
-                <label for="q4">
-                    <input type="radio" name="q4" value="To change the size of previously allocated memory"> To change the size of previously allocated memory<br>
-                    <input type="radio" name="q4" value="When you want to free memory"> When you want to free memory<br>
-                    <input type="radio" name="q4" value="To initialize variables"> To initialize variables<br>
-                </label>
+            free(a);                          // give it back
+            return 0;
+        }
+    </script>
+    <p>Three habits are packed into that code, and each one prevents a real bug:</p>
+    <ol>
+        <li><strong><code>n * sizeof *a</code>, not <code>n * sizeof(int)</code>.</strong> <code>sizeof *a</code> means "the size of whatever <code>a</code> points to". It's computed at compile time (nothing is dereferenced), and if you later change <code>a</code> to <code>double *</code>, the allocation stays correct automatically. Writing <code>sizeof a</code> (the pointer, 8 bytes) instead is a classic mistake.</li>
+        <li><strong>Always check for <code>NULL</code>.</strong> Allocation can fail, and writing through a <code>NULL</code> pointer is undefined behaviour. On a desktop it's rare, but a huge or miscalculated size makes it happen instantly.</li>
+        <li><strong>No cast.</strong> In C, <code>void *</code> converts implicitly, so <code>int *a = (int *)malloc(…)</code> is unnecessary. (C++ requires the cast; that's where you may have seen it.)</li>
+    </ol>
+    <div class="callout warn">
+        <span class="callout-title">malloc'd memory is not initialised</span>
+        <p>The bytes in a fresh <code>malloc</code> block are whatever happened to be there. Reading them before writing is a bug, just like reading an uninitialised local. If you need zeros, use <code>calloc</code>.</p>
+    </div>
 
-                <p>5. What happens if you forget to call <code>free</code> on dynamically allocated memory?</p>
-                <label for="q5">
-                    <input type="radio" name="q5" value="Nothing happens"> Nothing happens<br>
-                    <input type="radio" name="q5" value="Memory leak occurs"> Memory leak occurs<br>
-                    <input type="radio" name="q5" value="Memory is automatically freed"> Memory is automatically freed<br>
-                </label>
-				
-				<br>
-                <button onclick="checkDynamicMemoryAnswers()">Submit Quiz</button>
-                <div id="result"></div>
-            </div>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2024 Pointers Course - James Kelly</p>
-    </footer>
-    <script src="script.js"></script>
+    <h2><code>calloc</code>: allocate and zero</h2>
+    <p><code>calloc(count, size)</code> allocates room for <code>count</code> objects of <code>size</code> bytes each and sets every byte to zero. For integers that means every element is 0.</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stdlib.h>
+
+        int main(void) {
+            int *counts = calloc(10, sizeof *counts);   // ten ints, all 0
+            if (counts == NULL) {
+                return 1;
+            }
+
+            int rolls[] = {3, 7, 3, 1, 9, 3, 7};
+            for (int i = 0; i < 7; i++) {
+                counts[rolls[i]]++;                      // safe: they all start at 0
+            }
+            for (int d = 0; d < 10; d++) {
+                if (counts[d] > 0) {
+                    printf("%d appeared %d time(s)\n", d, counts[d]);
+                }
+            }
+            free(counts);
+            return 0;
+        }
+    </script>
+    <p>A bonus: <code>calloc</code> checks that <code>count * size</code> doesn't overflow and returns <code>NULL</code> if it would, while <code>malloc(count * size)</code> silently wraps around to a tiny number if the multiplication overflows.</p>
+
+    <h2><code>free</code>: giving it back</h2>
+    <p>Every block you get from <code>malloc</code>, <code>calloc</code> or <code>realloc</code> must be passed to <code>free</code> <strong>exactly once</strong> when you're done with it. The rules:</p>
+    <ul>
+        <li>Pass <code>free</code> the exact pointer the allocator gave you, not a pointer into the middle of the block, and never the address of a stack variable.</li>
+        <li><code>free(NULL)</code> is allowed and does nothing.</li>
+        <li>After <code>free(p)</code>, the value in <code>p</code> is unchanged, but it no longer points to anything you own. It's a dangling pointer.</li>
+    </ul>
+    <p>That last point is why many programmers write <code>free(p); p = NULL;</code>. Now an accidental second <code>free(p)</code> is harmless, and an accidental <code>*p</code> crashes immediately instead of silently corrupting memory.</p>
+
+    <h2>Watching the heap</h2>
+    <p>Step through this program. It allocates an array of 3 ints, fills it, grows it to 5 with <code>realloc</code>, and frees it. Watch the stack variables point into the heap, and notice that after <code>realloc</code> the data lives at a <em>different address</em>.</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            int main(void) {
+                int *a = malloc(3 * sizeof *a);
+                if (a == NULL) return 1;
+                for (int i = 0; i < 3; i++) {
+                    a[i] = (i + 1) * 10;
+                }
+                int *tmp = realloc(a, 5 * sizeof *a);
+                if (tmp == NULL) { free(a); return 1; }
+                a = tmp;
+                a[3] = 40;
+                a[4] = 50;
+                printf("%d %d\n", a[0], a[4]);
+                free(a);
+                a = NULL;
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "steps": [
+            { "line": 4, "note": "<code>main</code> starts. Nothing is allocated on the heap yet.", "stack": [{ "fn": "main", "vars": [] }], "heap": [] },
+            { "line": 5, "note": "<code>malloc(3 * sizeof *a)</code> asks for 12 bytes. The allocator finds a free block at <code>0x5581a0c0</code> and returns its address, which is stored in the stack variable <code>a</code>. The block's contents are uninitialised.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0c0", "ptr": "0x5581a0c0" }] }],
+              "heap": [{ "label": "malloc(12)", "cells": [{ "addr": "0x5581a0c0", "value": "?" }, { "addr": "0x5581a0c4", "value": "?" }, { "addr": "0x5581a0c8", "value": "?" }] }] },
+            { "line": 6, "note": "The allocation succeeded, so <code>a</code> isn't <code>NULL</code> and we carry on.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0c0", "ptr": "0x5581a0c0" }] }],
+              "heap": [{ "label": "malloc(12)", "cells": [{ "addr": "0x5581a0c0", "value": "?" }, { "addr": "0x5581a0c4", "value": "?" }, { "addr": "0x5581a0c8", "value": "?" }] }] },
+            { "line": 8, "note": "<code>i = 0</code>: <code>a[0]</code> is <code>*(a + 0)</code>, the first int in the heap block. It becomes 10.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0c0", "ptr": "0x5581a0c0" }, { "name": "i", "type": "int", "addr": "0x7ffc0c", "value": "0" }] }],
+              "heap": [{ "label": "malloc(12)", "cells": [{ "addr": "0x5581a0c0", "value": "10" }, { "addr": "0x5581a0c4", "value": "?" }, { "addr": "0x5581a0c8", "value": "?" }] }] },
+            { "line": 8, "note": "<code>i = 1</code>: <code>a[1]</code> becomes 20.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0c0", "ptr": "0x5581a0c0" }, { "name": "i", "type": "int", "addr": "0x7ffc0c", "value": "1" }] }],
+              "heap": [{ "label": "malloc(12)", "cells": [{ "addr": "0x5581a0c0", "value": "10" }, { "addr": "0x5581a0c4", "value": "20" }, { "addr": "0x5581a0c8", "value": "?" }] }] },
+            { "line": 8, "note": "<code>i = 2</code>: <code>a[2]</code> becomes 30. The loop ends and <code>i</code> goes out of scope.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0c0", "ptr": "0x5581a0c0" }, { "name": "i", "type": "int", "addr": "0x7ffc0c", "value": "2" }] }],
+              "heap": [{ "label": "malloc(12)", "cells": [{ "addr": "0x5581a0c0", "value": "10" }, { "addr": "0x5581a0c4", "value": "20" }, { "addr": "0x5581a0c8", "value": "30" }] }] },
+            { "line": 10, "note": "<code>realloc</code> needs 20 bytes. Here there's no room to grow in place, so it allocates a new block at <code>0x5581a0e0</code>, copies the 3 old ints across, and <strong>frees the old block</strong>. The new address goes into <code>tmp</code>. Look at <code>a</code>: it still holds the old address, so right now it's a dangling pointer.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0c0", "ptr": "0x5581a0c0" }, { "name": "tmp", "type": "int *", "addr": "0x7ffc10", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }] }],
+              "heap": [{ "label": "old block", "freed": true, "cells": [{ "addr": "0x5581a0c0", "value": "10" }, { "addr": "0x5581a0c4", "value": "20" }, { "addr": "0x5581a0c8", "value": "30" }] },
+                       { "label": "realloc(20)", "cells": [{ "addr": "0x5581a0e0", "value": "10" }, { "addr": "0x5581a0e4", "value": "20" }, { "addr": "0x5581a0e8", "value": "30" }, { "addr": "0x5581a0ec", "value": "?" }, { "addr": "0x5581a0f0", "value": "?" }] }] },
+            { "line": 11, "note": "<code>tmp</code> isn't <code>NULL</code>, so the resize worked. (If it had failed, the old block would still be valid and <code>a</code> would still point to it, so we could free it cleanly.)",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0c0", "ptr": "0x5581a0c0" }, { "name": "tmp", "type": "int *", "addr": "0x7ffc10", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }] }],
+              "heap": [{ "label": "old block", "freed": true, "cells": [{ "addr": "0x5581a0c0", "value": "10" }, { "addr": "0x5581a0c4", "value": "20" }, { "addr": "0x5581a0c8", "value": "30" }] },
+                       { "label": "realloc(20)", "cells": [{ "addr": "0x5581a0e0", "value": "10" }, { "addr": "0x5581a0e4", "value": "20" }, { "addr": "0x5581a0e8", "value": "30" }, { "addr": "0x5581a0ec", "value": "?" }, { "addr": "0x5581a0f0", "value": "?" }] }] },
+            { "line": 12, "note": "<code>a = tmp;</code> points <code>a</code> at the new block. Nothing refers to the old block any more, and the allocator is free to reuse it.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }, { "name": "tmp", "type": "int *", "addr": "0x7ffc10", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }] }],
+              "heap": [{ "label": "realloc(20)", "cells": [{ "addr": "0x5581a0e0", "value": "10" }, { "addr": "0x5581a0e4", "value": "20" }, { "addr": "0x5581a0e8", "value": "30" }, { "addr": "0x5581a0ec", "value": "?" }, { "addr": "0x5581a0f0", "value": "?" }] }] },
+            { "line": 13, "note": "The two new slots start uninitialised. <code>a[3] = 40</code> fills the first.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }, { "name": "tmp", "type": "int *", "addr": "0x7ffc10", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }] }],
+              "heap": [{ "label": "realloc(20)", "cells": [{ "addr": "0x5581a0e0", "value": "10" }, { "addr": "0x5581a0e4", "value": "20" }, { "addr": "0x5581a0e8", "value": "30" }, { "addr": "0x5581a0ec", "value": "40" }, { "addr": "0x5581a0f0", "value": "?" }] }] },
+            { "line": 14, "note": "<code>a[4] = 50</code> fills the last.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }, { "name": "tmp", "type": "int *", "addr": "0x7ffc10", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }] }],
+              "heap": [{ "label": "realloc(20)", "cells": [{ "addr": "0x5581a0e0", "value": "10" }, { "addr": "0x5581a0e4", "value": "20" }, { "addr": "0x5581a0e8", "value": "30" }, { "addr": "0x5581a0ec", "value": "40" }, { "addr": "0x5581a0f0", "value": "50" }] }] },
+            { "line": 15, "note": "The data copied by <code>realloc</code> and the new values are all there.", "output": "10 50",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }, { "name": "tmp", "type": "int *", "addr": "0x7ffc10", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }] }],
+              "heap": [{ "label": "realloc(20)", "cells": [{ "addr": "0x5581a0e0", "value": "10" }, { "addr": "0x5581a0e4", "value": "20" }, { "addr": "0x5581a0e8", "value": "30" }, { "addr": "0x5581a0ec", "value": "40" }, { "addr": "0x5581a0f0", "value": "50" }] }] },
+            { "line": 16, "note": "<code>free(a)</code> returns the block to the allocator. <code>a</code> and <code>tmp</code> still hold its address, but both are now dangling: reading or writing through them would be use-after-free.", "output": "10 50",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }, { "name": "tmp", "type": "int *", "addr": "0x7ffc10", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }] }],
+              "heap": [{ "label": "realloc(20)", "freed": true, "cells": [{ "addr": "0x5581a0e0", "value": "10" }, { "addr": "0x5581a0e4", "value": "20" }, { "addr": "0x5581a0e8", "value": "30" }, { "addr": "0x5581a0ec", "value": "40" }, { "addr": "0x5581a0f0", "value": "50" }] }] },
+            { "line": 17, "note": "<code>a = NULL;</code> makes it obvious that <code>a</code> no longer owns anything. (<code>tmp</code> is equally stale, but it's about to go out of scope.)", "output": "10 50",
+              "stack": [{ "fn": "main", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffc18", "value": "NULL" }, { "name": "tmp", "type": "int *", "addr": "0x7ffc10", "value": "0x5581a0e0", "ptr": "0x5581a0e0" }] }],
+              "heap": [{ "label": "realloc(20)", "freed": true, "cells": [{ "addr": "0x5581a0e0", "value": "10" }, { "addr": "0x5581a0e4", "value": "20" }, { "addr": "0x5581a0e8", "value": "30" }, { "addr": "0x5581a0ec", "value": "40" }, { "addr": "0x5581a0f0", "value": "50" }] }] },
+            { "line": 19, "note": "<code>main</code> returns. Every allocation was freed, so there are no leaks.", "output": "10 50", "stack": [], "heap": [] }
+          ]
+        }
+        </script>
+    </div>
+
+    <h2><code>realloc</code>: resizing a block</h2>
+    <p><code>realloc(p, new_size)</code> changes the size of a block you already own. It returns a pointer to the resized block, which may be the same address (if there was room to grow in place) or a new one (as in the visualizer above, where it copied the contents and freed the old block). Contents up to the smaller of the old and new sizes are preserved; any extra space is uninitialised. Two details are worth knowing: <code>realloc(NULL, size)</code> behaves like <code>malloc(size)</code>, and if it fails, it returns <code>NULL</code> and <strong>leaves the original block untouched</strong>.</p>
+    <p>That failure behaviour is why this tempting one-liner is a bug:</p>
+    <script type="text/c" data-static>
+        p = realloc(p, new_size);   // BUG: if realloc fails, p becomes NULL
+                                    // and the original block is leaked forever
+    </script>
+    <p>Always use a temporary:</p>
+    <script type="text/c" data-static>
+        int *tmp = realloc(p, new_count * sizeof *p);
+        if (tmp == NULL) {
+            // p is still valid: handle the error, and free(p) if giving up
+        } else {
+            p = tmp;
+        }
+    </script>
+
+    <h2>A growable array</h2>
+    <p>Put it all together and you get the most useful data structure there is: an array that grows as you add to it. Keep three things: the pointer, how many elements are in use (<code>len</code>), and how many fit (<code>cap</code>). When <code>len</code> reaches <code>cap</code>, double the capacity.</p>
+
+    <script type="text/c" data-stdin="5 12 7 3 19 8 2 41 6">
+        #include <stdio.h>
+        #include <stdlib.h>
+
+        int main(void) {
+            size_t len = 0;
+            size_t cap = 2;
+            int *data = malloc(cap * sizeof *data);
+            if (data == NULL) {
+                return 1;
+            }
+
+            int x;
+            while (scanf("%d", &x) == 1) {
+                if (len == cap) {
+                    size_t new_cap = cap * 2;
+                    int *tmp = realloc(data, new_cap * sizeof *data);
+                    if (tmp == NULL) {
+                        free(data);
+                        return 1;
+                    }
+                    data = tmp;
+                    cap = new_cap;
+                    printf("(grew to capacity %zu)\n", cap);
+                }
+                data[len] = x;
+                len++;
+            }
+
+            printf("read %zu numbers:", len);
+            for (size_t i = 0; i < len; i++) {
+                printf(" %d", data[i]);
+            }
+            printf("\n");
+
+            free(data);
+            return 0;
+        }
+    </script>
+    <p>Change the input and run it again: add more numbers and the array keeps growing. Why <em>double</em> instead of adding one slot at a time? Each <code>realloc</code> may copy every element. Growing by one would copy 1, then 2, then 3… elements, which adds up to roughly n²/2 copies for n items. Doubling means copies happen rarely, and the total work stays proportional to n. This is how C++'s <code>vector</code>, Python's <code>list</code> and Java's <code>ArrayList</code> work under the hood.</p>
+
+    <h2>Strings on the heap: remember the <code>+ 1</code></h2>
+    <p>A string needs one byte per character <em>plus one for the <code>'\0'</code></em>. <code>strlen</code> doesn't count the terminator, so whenever you size a buffer from <code>strlen</code>, add 1:</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <string.h>
+
+        // Returns a new heap string "first last". Caller must free it.
+        char *full_name(const char *first, const char *last) {
+            size_t n = strlen(first) + 1 + strlen(last) + 1;   // space + '\0'
+            char *s = malloc(n);                                // sizeof(char) is 1 by definition
+            if (s == NULL) {
+                return NULL;
+            }
+            snprintf(s, n, "%s %s", first, last);
+            return s;
+        }
+
+        int main(void) {
+            char *name = full_name("Ada", "Lovelace");
+            if (name == NULL) {
+                return 1;
+            }
+            printf("%s (%zu chars)\n", name, strlen(name));
+            free(name);
+            return 0;
+        }
+    </script>
+    <p>Forget the <code>+ 1</code> and the final <code>'\0'</code> is written one byte past the end of your block. That's a heap buffer overflow: undefined behaviour that frequently goes unnoticed until it corrupts the allocator's own bookkeeping and crashes somewhere completely unrelated.</p>
+
+    <h2>The classic bugs</h2>
+    <p>Manual memory management fails in a small number of well-known ways. Learn to recognise them:</p>
+    <script type="text/c" data-static>
+        // 1. Memory leak: the only pointer to a block is lost before free
+        int *p = malloc(100 * sizeof *p);
+        p = malloc(200 * sizeof *p);        // the first block can never be freed now
+
+        // 2. Use-after-free: touching memory you've already given back
+        free(p);
+        p[0] = 7;                           // UB: the block may already be reused
+
+        // 3. Double free: freeing the same block twice
+        free(p);                            // UB: often corrupts the heap, or aborts
+
+        // 4. Off-by-one for strings: no room for the '\0'
+        char *copy = malloc(strlen(src));   // should be strlen(src) + 1
+        strcpy(copy, src);                  // writes one byte past the end
+
+        // 5. Wrong size: sizeof the pointer, not the pointee
+        double *d = malloc(10 * sizeof d);  // 80 bytes only by luck; use sizeof *d
+
+        // 6. Freeing something that didn't come from malloc
+        int x;
+        free(&x);                           // UB
+    </script>
+    <ul>
+        <li>A <strong>leak</strong> doesn't crash; the memory just stays reserved until the program exits (the OS reclaims everything then). For a short program it's harmless, but in a server or a game loop it grows until the machine runs out.</li>
+        <li><strong>Use-after-free</strong> and <strong>double free</strong> are worse: they're undefined behaviour, and they're among the most common sources of real-world security vulnerabilities.</li>
+        <li>Setting pointers to <code>NULL</code> after freeing turns bugs 2 and 3 into a clean crash or a harmless no-op.</li>
+        <li>Have a clear <strong>owner</strong> for every allocation: one place in the code responsible for freeing it. When a function returns heap memory, say so in a comment ("caller must free").</li>
+    </ul>
+
+    <div class="callout tip">
+        <span class="callout-title">Let tools find these for you</span>
+        <p>Memory bugs are notoriously hard to spot by reading code, so use tools. Compile with <strong>AddressSanitizer</strong>, <code>gcc -g -fsanitize=address prog.c</code> (Clang supports the same flag), and your program stops with a detailed report, including the exact line, the moment it overflows a buffer, uses freed memory or frees twice. It reports leaks at exit too (on Linux). On Linux, <strong>Valgrind</strong> (<code>valgrind --leak-check=full ./prog</code>) does similar checks without recompiling. These run on your own machine; the Run button on this site can't show them.</p>
+    </div>
+
+    <h2>Exercises</h2>
+
+    <div class="exercise" data-id="dm-reverse-n" data-stdin="6\n4 8 15 16 23 42">
+        <h3>Read n numbers, print them reversed</h3>
+        <p>The first number of input is <code>n</code>, followed by <code>n</code> integers. Allocate exactly enough memory for them with <code>malloc</code>, read them in, print them in reverse order separated by spaces, and free the memory.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            int main(void) {
+                int n;
+                if (scanf("%d", &n) != 1 || n <= 0) {
+                    return 1;
+                }
+
+                // TODO: allocate room for n ints (check for NULL)
+                // TODO: read n ints
+                // TODO: print them in reverse, then a newline
+                // TODO: free
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            42 23 16 15 8 4
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            int main(void) {
+                int n;
+                if (scanf("%d", &n) != 1 || n <= 0) {
+                    return 1;
+                }
+
+                int *a = malloc(n * sizeof *a);
+                if (a == NULL) {
+                    return 1;
+                }
+                for (int i = 0; i < n; i++) {
+                    if (scanf("%d", &a[i]) != 1) {
+                        free(a);
+                        return 1;
+                    }
+                }
+                for (int i = n - 1; i >= 0; i--) {
+                    printf("%d", a[i]);
+                    if (i > 0) {
+                        printf(" ");
+                    }
+                }
+                printf("\n");
+
+                free(a);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p><code>int *a = malloc(n * sizeof *a);</code> then read with <code>scanf("%d", &amp;a[i])</code>. Print with a loop from <code>i = n - 1</code> down to <code>0</code>. Trailing spaces at the end of a line are ignored by the checker.</p></details>
+    </div>
+
+    <div class="exercise" data-id="dm-my-strdup">
+        <h3>Write <code>my_strdup</code></h3>
+        <p>Implement <code>my_strdup</code>: allocate a new heap buffer just big enough for <code>s</code> (including its <code>'\0'</code>), copy the string into it, and return it. Return <code>NULL</code> if allocation fails. <code>main</code> checks that the copy is independent of the original.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <stdlib.h>
+            #include <string.h>
+
+            char *my_strdup(const char *s) {
+                // TODO
+                return NULL;
+            }
+
+            int main(void) {
+                char original[] = "heap";
+                char *copy = my_strdup(original);
+                if (copy == NULL) {
+                    printf("allocation failed\n");
+                    return 1;
+                }
+                copy[0] = 'k';
+                copy[3] = 'n';
+                printf("%s %s\n", original, copy);
+                printf("%zu\n", strlen(copy));
+                free(copy);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            heap kean
+            4
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <stdlib.h>
+            #include <string.h>
+
+            char *my_strdup(const char *s) {
+                size_t n = strlen(s) + 1;
+                char *copy = malloc(n);
+                if (copy == NULL) {
+                    return NULL;
+                }
+                memcpy(copy, s, n);
+                return copy;
+            }
+
+            int main(void) {
+                char original[] = "heap";
+                char *copy = my_strdup(original);
+                if (copy == NULL) {
+                    printf("allocation failed\n");
+                    return 1;
+                }
+                copy[0] = 'k';
+                copy[3] = 'n';
+                printf("%s %s\n", original, copy);
+                printf("%zu\n", strlen(copy));
+                free(copy);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>You need <code>strlen(s) + 1</code> bytes. After checking the result of <code>malloc</code>, copy with <code>strcpy(copy, s)</code> or <code>memcpy(copy, s, n)</code>. (Real C libraries provide <code>strdup</code>, and C23 makes it standard, which is why ours is called <code>my_strdup</code>.)</p></details>
+    </div>
+
+    <div class="exercise" data-id="dm-growable-above-average" data-stdin="9 2 7 4 10 1 8 3 6 5 12">
+        <h3>Above average</h3>
+        <p>Read integers until the input ends (you don't know how many there are). Store them in a growable array that starts with capacity 4 and doubles when full. Then print how many numbers were read, and every number that is strictly greater than the average, in input order. To avoid floating point, note that <code>x &gt; sum / count</code> is the same as <code>x * count &gt; sum</code>.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            int main(void) {
+                size_t len = 0;
+                size_t cap = 4;
+                int *data = malloc(cap * sizeof *data);
+                if (data == NULL) {
+                    return 1;
+                }
+
+                int x;
+                while (scanf("%d", &x) == 1) {
+                    // TODO: grow with realloc (use a tmp pointer!) when len == cap
+                    // TODO: append x
+                }
+
+                // TODO: print "count=<len>" on one line,
+                //       then the above-average numbers separated by spaces
+
+                free(data);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            count=11
+            9 7 10 8 12
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <stdlib.h>
+
+            int main(void) {
+                size_t len = 0;
+                size_t cap = 4;
+                int *data = malloc(cap * sizeof *data);
+                if (data == NULL) {
+                    return 1;
+                }
+
+                int x;
+                while (scanf("%d", &x) == 1) {
+                    if (len == cap) {
+                        int *tmp = realloc(data, cap * 2 * sizeof *data);
+                        if (tmp == NULL) {
+                            free(data);
+                            return 1;
+                        }
+                        data = tmp;
+                        cap *= 2;
+                    }
+                    data[len++] = x;
+                }
+
+                long sum = 0;
+                for (size_t i = 0; i < len; i++) {
+                    sum += data[i];
+                }
+
+                printf("count=%zu\n", len);
+                for (size_t i = 0; i < len; i++) {
+                    if ((long)data[i] * (long)len > sum) {
+                        printf("%d ", data[i]);
+                    }
+                }
+                printf("\n");
+
+                free(data);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Inside the loop: <code>if (len == cap) { int *tmp = realloc(data, cap * 2 * sizeof *data); … data = tmp; cap *= 2; }</code> then <code>data[len++] = x;</code>. Afterwards, sum everything into a <code>long</code>, and print each <code>data[i]</code> where <code>(long)data[i] * (long)len &gt; sum</code>. The sum here is 67 and the count is 11, so the average is about 6.09.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "Which line correctly allocates space for 20 <code>double</code>s?",
+        "choices": ["<code>double *d = malloc(20);</code>", "<code>double *d = malloc(20 * sizeof d);</code>", "<code>double *d = malloc(sizeof(double));</code>", "<code>double *d = malloc(20 * sizeof *d);</code>"],
+        "answer": 3, "explain": "<code>malloc</code> takes a size in bytes. <code>sizeof *d</code> is the size of one <code>double</code>. <code>sizeof d</code> is the size of the pointer, and plain <code>20</code> is only 20 bytes." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int *a = calloc(4, sizeof *a);\nif (a == NULL) return 1;\na[1] = 5;\na[3] = a[1] * 2;\nprintf(\"%d %d %d %d\", a[0], a[1], a[2], a[3]);\nfree(a);",
+        "answer": "0 5 0 10", "explain": "<code>calloc</code> zeroes the block, so the elements you didn't set are 0." },
+      { "q": "Why is <code>p = realloc(p, n * sizeof *p);</code> risky?",
+        "choices": ["<code>realloc</code> always moves the block", "If <code>realloc</code> fails it returns <code>NULL</code>, overwriting your only pointer to the still-allocated block", "<code>realloc</code> can't be used on <code>malloc</code>'d memory", "It isn't; this is the recommended style"],
+        "answer": 1, "explain": "On failure the original block is left intact, but you've just replaced <code>p</code> with <code>NULL</code>, so you can never free it: a leak. Assign to a <code>tmp</code> first and check it." },
+      { "q": "What does this print?", "type": "output",
+        "code": "const char *src = \"memory\";\nchar *s = malloc(strlen(src) + 1);\nif (s == NULL) return 1;\nstrcpy(s, src);\ns[3] = '\\0';\nprintf(\"%s %zu\", s, strlen(src) + 1);\nfree(s);",
+        "answer": "mem 7", "explain": "Writing <code>'\\0'</code> at index 3 ends the copy's string after \"mem\". The allocation was <code>strlen(\"memory\") + 1</code> = 7 bytes, one for each character plus the terminator." },
+      { "q": "A block is freed with <code>free(p);</code>. What is true about <code>p</code> immediately afterwards?",
+        "choices": ["It still holds the old address, but using it is undefined behaviour", "It is automatically set to <code>NULL</code>", "It points to a fresh zeroed block", "The variable <code>p</code> itself has been destroyed"],
+        "answer": 0, "explain": "<code>free</code> can't change your variable (it got a copy of the pointer). <code>p</code> now dangles. Setting <code>p = NULL;</code> yourself makes later mistakes easier to catch." },
+      { "q": "Which of these is a memory <strong>leak</strong>?",
+        "choices": ["<code>free(p); free(p);</code>", "<code>int x; free(&amp;x);</code>", "<code>char *s = malloc(10); s = malloc(20);</code> (never freeing the first block)", "<code>free(NULL);</code>"],
+        "answer": 2, "explain": "Overwriting the only pointer to the first block means it can never be freed. The first option is a double free and the second frees non-heap memory (both UB); <code>free(NULL)</code> is a harmless no-op." },
+      { "q": "What does this print?", "type": "output",
+        "code": "size_t cap = 1;\nint grows = 0;\nfor (size_t len = 0; len < 10; len++) {\n    if (len == cap) {\n        cap *= 2;\n        grows++;\n    }\n}\nprintf(\"%zu %d\", cap, grows);",
+        "answer": "16 4", "explain": "Capacity doubles when <code>len</code> reaches 1, 2, 4 and 8: 1 → 2 → 4 → 8 → 16. Four reallocations are enough for 10 elements, which is why doubling is efficient." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
 </body>
 </html>
-

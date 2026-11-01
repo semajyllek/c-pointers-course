@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preprocessor &amp; Multi-file Programs · Learn C</title>
+    <meta name="description" content="The C preprocessor (#include, #define, macros and their pitfalls, conditional compilation) and splitting programs into header and source files.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>Preprocessor &amp; Multi-file Programs</h1>
+    <p class="lead">Every line starting with <code>#</code> that you've written, starting with <code>#include &lt;stdio.h&gt;</code>, isn't really C. It's an instruction to the <strong>preprocessor</strong>, a text-processing step that runs before the compiler proper. This lesson shows what it does, how to use macros without getting burned, and how the preprocessor lets you split a program across many files, which is how every real C project is organised.</p>
+
+    <h2>What the preprocessor does</h2>
+    <p>Before your code is compiled, the preprocessor makes a pass over the source text and:</p>
+    <ul>
+        <li>replaces each comment with a single space,</li>
+        <li>carries out <strong>directives</strong>, the lines beginning with <code>#</code>: pasting in included files, defining macros, keeping or dropping blocks of code, and</li>
+        <li><strong>expands macros</strong>: wherever a defined name appears, it substitutes the replacement text.</li>
+    </ul>
+    <p>The crucial thing to understand is that this is <strong>text substitution</strong>. The preprocessor works on tokens (words, numbers, symbols) and knows nothing about types, variables, scope or functions. The compiler only ever sees the result. You can look at that result yourself with <code>gcc -E</code>, which stops after preprocessing. Given this file:</p>
+    <script type="text/c" data-static data-title="hello.c">
+        #include <stdio.h>
+        #define GREETING "hi"
+        #define TIMES 3
+
+        int main(void) {
+            // say hello
+            for (int i = 0; i < TIMES; i++)
+                puts(GREETING);
+            return 0;
+        }
+    </script>
+    <pre class="terminal">gcc -E hello.c | tail -n 6
+int main(void) {
+
+    for (int i = 0; i &lt; 3; i++)
+        puts("hi");
+    return 0;
+}</pre>
+    <p>The comment is gone, <code>TIMES</code> and <code>GREETING</code> have been replaced, and the <code>#define</code> lines themselves have disappeared. We used <code>tail</code> because the full output starts with the entire contents of <code>stdio.h</code> (and everything <em>it</em> includes): hundreds of lines of declarations. Running <code>gcc -E</code> is the best way to debug a confusing macro.</p>
+
+    <h2><code>#include</code></h2>
+    <p><code>#include</code> replaces itself with the entire contents of another file, exactly as if you'd pasted it there. There are two forms:</p>
+    <table>
+        <thead><tr><th>Form</th><th>Searches</th><th>Use it for</th></tr></thead>
+        <tbody>
+            <tr><td><code>#include &lt;stdio.h&gt;</code></td><td>the system and compiler include directories</td><td>the standard library and installed libraries</td></tr>
+            <tr><td><code>#include "vec.h"</code></td><td>first the directory of the file doing the including, then the system directories</td><td>your own project's headers</td></tr>
+        </tbody>
+    </table>
+    <p>You can add directories to the search path with <code>-I</code>, for example <code>gcc -Iinclude main.c</code> to find headers in an <code>include/</code> folder. (The exact search order is implementation-defined, but every mainstream compiler behaves as in the table.)</p>
+
+    <h2>Object-like macros: named constants</h2>
+    <p>The simplest macro gives a name to a value:</p>
+    <script type="text/c" data-static>
+        #define MAX_USERS 100
+        #define PI        3.14159265358979
+        #define APP_NAME  "Inventory"
+    </script>
+    <p>From that point to the end of the file, every <code>MAX_USERS</code> token is replaced by <code>100</code>. By convention macro names are <code>ALL_CAPS</code>, so readers know text substitution is happening. Note what's <em>not</em> there: no <code>=</code> and no semicolon. Both would become part of the replacement text:</p>
+    <script type="text/c" data-static>
+        #define SIZE 10;        // oops: the ; is part of the macro
+        int scores[SIZE];       // becomes  int scores[10;];   -> confusing syntax error
+    </script>
+
+    <h3><code>#define</code> vs <code>const</code> vs <code>enum</code></h3>
+    <p>C gives you three ways to name a constant, and they're not interchangeable:</p>
+    <table>
+        <thead><tr><th></th><th><code>#define N 10</code></th><th><code>const int n = 10;</code></th><th><code>enum { N = 10 };</code></th></tr></thead>
+        <tbody>
+            <tr><td>Has a type</td><td>no, it's just text</td><td>yes</td><td>yes (<code>int</code>)</td></tr>
+            <tr><td>Respects scope</td><td>no: it's active until <code>#undef</code> or end of file</td><td>yes</td><td>yes</td></tr>
+            <tr><td>Visible in a debugger</td><td>usually not</td><td>yes</td><td>yes</td></tr>
+            <tr><td>Usable as a <code>case</code> label or file-scope array size</td><td>yes</td><td><strong>no</strong> (in C)</td><td>yes</td></tr>
+            <tr><td>Works for doubles and strings</td><td>yes</td><td>yes</td><td>no, integers only</td></tr>
+        </tbody>
+    </table>
+    <p>That fourth row surprises people coming from C++: in C, a <code>const int</code> is a read-only <em>variable</em>, not a compile-time constant, so <code>case n:</code> is an error. A reasonable guideline: use <code>enum</code> for integer constants, <code>const</code> variables for typed values like <code>const double tax_rate = 0.2;</code>, and <code>#define</code> when you need the value in preprocessor conditions or nothing else works.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        #define TITLE "Grades"                       // macro: plain text substitution
+        enum { NUM_STUDENTS = 4, A_BAND = 9, B_BAND = 8 };   // true integer constants
+        static const double pass_mark = 50.0;        // a typed, read-only variable
+
+        int main(void) {
+            int marks[NUM_STUDENTS] = { 93, 49, 85, 50 };
+
+            printf("%s (pass mark %.0f)\n", TITLE, pass_mark);
+            for (int i = 0; i < NUM_STUDENTS; i++) {
+                char grade;
+                switch (marks[i] / 10) {
+                    case A_BAND: grade = 'A'; break;   // enum constants work as case labels;
+                    case B_BAND: grade = 'B'; break;   // a const int would not
+                    default:     grade = marks[i] >= pass_mark ? 'C' : 'F'; break;
+                }
+                printf("student %d: %d -> %c\n", i, marks[i], grade);
+            }
+            return 0;
+        }
+    </script>
+
+    <h2>Function-like macros</h2>
+    <p>A macro can take parameters. There must be <strong>no space</strong> between the name and the <code>(</code>, otherwise it's an object-like macro whose text starts with a parenthesis:</p>
+    <script type="text/c" data-static>
+        #define SQUARE(x) ((x) * (x))
+
+        int a = SQUARE(5);       // becomes ((5) * (5))
+        double b = SQUARE(1.5);  // works for any type: ((1.5) * (1.5))
+    </script>
+    <p>It looks like a function call, but nothing is called: the argument text is pasted into the replacement. That makes macros fast and type-agnostic, and it's also the source of every macro pitfall.</p>
+
+    <h3>Pitfall 1: missing parentheses</h3>
+    <p>Because substitution is textual, operator precedence applies to the <em>expanded</em> text. Every parameter use needs parentheses, and so does the whole replacement. Run this and work out each result by expanding the macro by hand:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        #define SQUARE_BAD(x)  x * x          // no parentheses at all
+        #define SQUARE_MEH(x)  (x) * (x)      // parameters only
+        #define SQUARE(x)      ((x) * (x))    // parameters AND the whole thing
+
+        int main(void) {
+            printf("SQUARE_BAD(1 + 2)   = %d\n", SQUARE_BAD(1 + 2));   // 1 + 2 * 1 + 2
+            printf("SQUARE(1 + 2)       = %d\n", SQUARE(1 + 2));
+
+            printf("100 / SQUARE_MEH(5) = %d\n", 100 / SQUARE_MEH(5)); // 100 / (5) * (5)
+            printf("100 / SQUARE(5)     = %d\n", 100 / SQUARE(5));
+            return 0;
+        }
+    </script>
+    <p><code>SQUARE_BAD(1 + 2)</code> expands to <code>1 + 2 * 1 + 2</code>, which is 5, not 9. <code>100 / SQUARE_MEH(5)</code> expands to <code>100 / (5) * (5)</code>, which divides first and gives 100, not 4. Fully parenthesised, both are correct.</p>
+
+    <h3>Pitfall 2: arguments evaluated more than once</h3>
+    <p>Parentheses can't fix this one. If a parameter appears twice in the replacement, the argument expression runs twice:</p>
+    <script type="text/c" data-static>
+        int i = 3;
+        int s = SQUARE(i++);   // becomes ((i++) * (i++)): two unsequenced
+                               // modifications of i -> undefined behaviour
+    </script>
+    <p>Even when it isn't undefined behaviour, it's surprising. Here a <code>MAX</code> macro calls a function twice, so a value is "used up" behind your back:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        #define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+        int ticket = 0;
+        int next_ticket(void) {
+            ticket++;
+            printf("  (handing out ticket %d)\n", ticket);
+            return ticket;
+        }
+
+        int main(void) {
+            int t = MAX(next_ticket(), 0);   // ((next_ticket()) > (0) ? (next_ticket()) : (0))
+            printf("got ticket %d, but %d tickets were handed out (ticket 1 was wasted)\n", t, ticket);
+            return 0;
+        }
+    </script>
+    <div class="callout tip">
+        <span class="callout-title">Prefer functions; reach for macros when you need them</span>
+        <p>A <code>static inline int square(int x) { return x * x; }</code> evaluates its argument exactly once, is type-checked, and is just as fast with optimisation on. Macros are still the right tool when you need things a function can't do: work with any type, use <code>__FILE__</code>/<code>__LINE__</code> of the <em>caller</em>, turn code into a string, or compute something the compiler needs as a constant (like <code>ARRAY_LEN</code>, which you'll write below).</p>
+    </div>
+
+    <h3>Multi-statement macros and <code>do { } while (0)</code></h3>
+    <p>A macro that expands to several statements has a nasty interaction with <code>if</code>/<code>else</code>. Look at what this becomes:</p>
+    <script type="text/c" data-static>
+        #define SWAP_BAD(a, b) int tmp = a; a = b; b = tmp;
+
+        if (x > y)
+            SWAP_BAD(x, y);     // only "int tmp = x;" belongs to the if...
+        else                    // ...and this else has no if: compile error
+            puts("in order");
+    </script>
+    <p>Wrapping the body in braces isn't enough either, because the caller's semicolon after <code>}</code> still ends the <code>if</code> before the <code>else</code>. The standard idiom is to wrap the body in <code>do { ... } while (0)</code>: a loop that runs exactly once, forms a single statement, and <em>requires</em> a semicolon after it, just like a function call. It also gives <code>tmp</code> its own scope.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        #define SWAP_INT(a, b) do { int tmp_ = (a); (a) = (b); (b) = tmp_; } while (0)
+
+        int main(void) {
+            int x = 9, y = 4;
+            if (x > y)
+                SWAP_INT(x, y);
+            else
+                puts("already in order");
+            printf("x=%d y=%d\n", x, y);
+            return 0;
+        }
+    </script>
+    <p>A long macro can be split over several lines by ending each line with a backslash <code>\</code>, which joins it to the next. You'll see that in the debug macro below.</p>
+
+    <h2>Conditional compilation</h2>
+    <p>Directives like <code>#ifdef</code> and <code>#if</code> let the preprocessor <em>keep or delete</em> blocks of code before the compiler ever sees them. The most common use is debugging output that you can switch on and off without editing the code:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        #define DEBUG   // comment this line out, run again, and the [debug] lines vanish
+
+        #ifdef DEBUG
+        #define DEBUG_LOG(...)                                              \
+            do {                                                            \
+                fprintf(stderr, "[debug %s:%d %s] ", __FILE__, __LINE__, __func__); \
+                fprintf(stderr, __VA_ARGS__);                               \
+            } while (0)
+        #else
+        #define DEBUG_LOG(...) do { } while (0)
+        #endif
+
+        int factorial(int n) {
+            DEBUG_LOG("factorial(%d)\n", n);
+            return n <= 1 ? 1 : n * factorial(n - 1);
+        }
+
+        int main(void) {
+            DEBUG_LOG("starting\n");
+            printf("5! = %d\n", factorial(5));
+            return 0;
+        }
+    </script>
+    <p>The <code>...</code> and <code>__VA_ARGS__</code> make this a <strong>variadic macro</strong>: it takes any number of arguments and forwards them all to <code>fprintf</code>. When <code>DEBUG</code> isn't defined, every <code>DEBUG_LOG(...)</code> expands to an empty statement and the logging costs nothing at all.</p>
+    <p>In real projects you don't edit the source to turn debugging on; you define the macro from the command line with <code>-D</code>:</p>
+    <pre class="terminal">gcc -DDEBUG -Wall -Wextra main.c -o app</pre>
+    <p>The full set of conditional directives:</p>
+    <table>
+        <thead><tr><th>Directive</th><th>Keeps the following code if...</th></tr></thead>
+        <tbody>
+            <tr><td><code>#ifdef NAME</code></td><td><code>NAME</code> is defined (with any value, even none)</td></tr>
+            <tr><td><code>#ifndef NAME</code></td><td><code>NAME</code> is <em>not</em> defined</td></tr>
+            <tr><td><code>#if expr</code></td><td>the integer expression is non-zero; <code>defined(NAME)</code> can be used inside it</td></tr>
+            <tr><td><code>#elif expr</code> / <code>#else</code></td><td>the previous branches were all false</td></tr>
+            <tr><td><code>#endif</code></td><td>ends the conditional block</td></tr>
+        </tbody>
+    </table>
+    <script type="text/c" data-static>
+        #if defined(_WIN32)
+            #define PATH_SEP '\\'
+        #elif defined(__unix__) || defined(__APPLE__)
+            #define PATH_SEP '/'
+        #else
+            #error "Unknown platform: please define PATH_SEP"
+        #endif
+
+        #if 0
+            This block is removed entirely, even if it isn't valid C.
+            Handy for temporarily disabling code that contains /* comments */.
+        #endif
+    </script>
+    <p><code>#error</code> stops compilation with your message. You've also been relying on conditional compilation without knowing it: <code>assert</code> from <code>&lt;assert.h&gt;</code> is a macro that disappears completely when <code>NDEBUG</code> is defined, which is how release builds turn assertions off.</p>
+
+    <h2>Predefined macros</h2>
+    <p>The compiler defines some macros for you:</p>
+    <table>
+        <thead><tr><th>Name</th><th>Expands to</th></tr></thead>
+        <tbody>
+            <tr><td><code>__FILE__</code></td><td>the current source file name, as a string literal</td></tr>
+            <tr><td><code>__LINE__</code></td><td>the current line number, as an integer</td></tr>
+            <tr><td><code>__DATE__</code>, <code>__TIME__</code></td><td>when the file was compiled, as strings</td></tr>
+            <tr><td><code>__STDC_VERSION__</code></td><td>the C standard in use, e.g. <code>201710L</code> for C17</td></tr>
+            <tr><td><code>__func__</code></td><td>the name of the enclosing function (see below)</td></tr>
+        </tbody>
+    </table>
+    <p>Strictly speaking, <code>__func__</code> isn't a macro: the preprocessor doesn't know what a function is. It's an identifier the <em>compiler</em> declares at the start of every function body, as if you'd written <code>static const char __func__[] = "function-name";</code>. That's why the debug macro above could use it to print the name of the function that <em>called</em> <code>DEBUG_LOG</code>.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        void where_am_i(void) {
+            printf("in %s, %s line %d\n", __func__, __FILE__, __LINE__);
+        }
+
+        int main(void) {
+            where_am_i();
+            printf("in %s, %s line %d\n", __func__, __FILE__, __LINE__);
+            printf("compiled on %s at %s\n", __DATE__, __TIME__);
+            printf("C standard: %ld\n", __STDC_VERSION__);
+            return 0;
+        }
+    </script>
+
+    <h2>Stringizing <code>#</code> and token pasting <code>##</code></h2>
+    <p>Inside a macro's replacement, two operators work on the argument text itself. <code>#param</code> turns an argument into a string literal, and <code>a ## b</code> glues two tokens into one:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        // #expr turns the argument's source text into a string
+        #define SHOW(expr) printf("%-12s = %d\n", #expr, (expr))
+
+        // ## glues tokens: DEFINE_GETTER(width) defines get_width()
+        #define DEFINE_GETTER(field) \
+            int get_##field(const struct Box *b) { return b->field; }
+
+        struct Box { int width, height; };
+        DEFINE_GETTER(width)
+        DEFINE_GETTER(height)
+
+        int main(void) {
+            int x = 6;
+            SHOW(x * 7);
+            SHOW(x % 4 + 1);
+
+            struct Box box = { 3, 5 };
+            SHOW(get_width(&box));
+            SHOW(get_height(&box));
+            return 0;
+        }
+    </script>
+    <p>Stringizing is genuinely useful for debugging and assertion messages (it's how <code>assert</code> prints the failing condition). Token pasting is more niche, used to generate families of similar functions or names. Use both sparingly: code generated by macros is hard to read and hard to debug.</p>
+
+    <h2>Multi-file programs</h2>
+    <p>Real programs aren't one file. Splitting code into modules keeps related code together, lets several programs reuse a module, and means a change to one file only requires recompiling that file. C's model for this is simple and is built on what you just learned:</p>
+    <ul>
+        <li>A <strong>header</strong> (<code>.h</code>) contains <strong>declarations</strong>: function prototypes, type definitions (structs, enums, typedefs), macros, and <code>extern</code> declarations of shared variables. It's the module's public interface: <em>what</em> it offers.</li>
+        <li>A <strong>source file</strong> (<code>.c</code>) contains the <strong>definitions</strong>: function bodies and the variables themselves. It's <em>how</em> the module works.</li>
+        <li>Any file that wants to use the module <code>#include</code>s its header, which pastes in the declarations so the compiler can check every call.</li>
+    </ul>
+    <p>Here's a small 2D-vector module split the standard way:</p>
+    <script type="text/c" data-static data-title="vec.h">
+        #ifndef VEC_H          // include guard: see below
+        #define VEC_H
+
+        typedef struct {
+            double x, y;
+        } Vec;
+
+        Vec    vec_add(Vec a, Vec b);
+        Vec    vec_scale(Vec v, double k);
+        double vec_length(Vec v);
+        void   vec_print(const char *label, Vec v);
+
+        extern int vec_ops;    // declared here, defined in vec.c
+
+        #endif
+    </script>
+    <script type="text/c" data-static data-title="vec.c">
+        #include <math.h>
+        #include <stdio.h>
+        #include "vec.h"       // include your own header: the compiler then checks
+                               // that the definitions match the declarations
+
+        int vec_ops = 0;       // the one definition of the shared variable
+
+        static double square(double v) {   // static: private to this file
+            return v * v;
+        }
+
+        Vec vec_add(Vec a, Vec b) {
+            vec_ops++;
+            return (Vec){ a.x + b.x, a.y + b.y };
+        }
+
+        Vec vec_scale(Vec v, double k) {
+            vec_ops++;
+            return (Vec){ v.x * k, v.y * k };
+        }
+
+        double vec_length(Vec v) {
+            vec_ops++;
+            return sqrt(square(v.x) + square(v.y));
+        }
+
+        void vec_print(const char *label, Vec v) {
+            printf("%s = (%g, %g)\n", label, v.x, v.y);
+        }
+    </script>
+    <script type="text/c" data-static data-title="main.c">
+        #include <stdio.h>
+        #include "vec.h"
+
+        int main(void) {
+            Vec a = { 3, 4 };
+            Vec b = { 1, -2 };
+            vec_print("a + b", vec_add(a, b));
+            vec_print("2a", vec_scale(a, 2));
+            printf("|a| = %g\n", vec_length(a));
+            printf("%d vector operations\n", vec_ops);
+            return 0;
+        }
+    </script>
+
+    <h3>Declarations, definitions and <code>extern</code></h3>
+    <p>A <strong>declaration</strong> tells the compiler a name exists and what type it has. A <strong>definition</strong> actually creates it: allocates the variable's storage or provides the function's body. You can declare something as many times as you like, but across the whole program each function and global variable must be <em>defined</em> exactly once.</p>
+    <p>For functions, a prototype is automatically just a declaration. For variables you need <code>extern</code>: <code>extern int vec_ops;</code> means "there is an <code>int</code> called <code>vec_ops</code> somewhere else; let me use it". Without <code>extern</code>, putting <code>int vec_ops = 0;</code> in the header would define a separate variable in every file that includes it, and the linker would complain about multiple definitions.</p>
+
+    <h3><code>static</code>: keeping things private</h3>
+    <p>At file scope, <code>static</code> means something different from the <code>static</code> local variables you may have seen: it gives a function or global variable <strong>internal linkage</strong>, making it invisible outside its <code>.c</code> file. <code>square</code> in <code>vec.c</code> is a helper nobody else should call, so it's <code>static</code>. That keeps the module's interface small, and another file can have its own <code>square</code> without a clash. A good default: make every function <code>static</code> unless it's in the header.</p>
+
+    <h3>Include guards and <code>#pragma once</code></h3>
+    <p>Headers often include other headers, so the same header can easily be pasted into one <code>.c</code> file twice (say, <code>main.c</code> includes <code>vec.h</code> and <code>shapes.h</code>, and <code>shapes.h</code> also includes <code>vec.h</code>). Prototypes can be repeated harmlessly, but defining the <code>Vec</code> type twice is an error. The <strong>include guard</strong> pattern prevents it:</p>
+    <script type="text/c" data-static>
+        #ifndef VEC_H      // first time: VEC_H isn't defined, so keep going
+        #define VEC_H      // define it, so...
+        /* ... header contents ... */
+        #endif             // ...the second time, everything in between is skipped
+    </script>
+    <p>Pick a guard name unique to the file, usually derived from its name. Most compilers (GCC, Clang, MSVC) also support the one-line <code>#pragma once</code> at the top of a header, which does the same job. It isn't part of the C standard, but it's so widely supported that many projects use it. Either is fine; just be consistent, and give <em>every</em> header one.</p>
+
+    <h3>Compiling and linking</h3>
+    <p>Building a C program is really two steps. The <strong>compiler</strong> turns each <code>.c</code> file, on its own, into an <strong>object file</strong> (<code>.o</code>) of machine code. Calls to functions in other files are left as unresolved references. Then the <strong>linker</strong> combines the object files and libraries into one executable, connecting each call to its definition.</p>
+    <pre class="terminal">gcc -std=c17 -Wall -Wextra -c vec.c        # compile only: produces vec.o</pre>
+    <pre class="terminal">gcc -std=c17 -Wall -Wextra -c main.c       # produces main.o</pre>
+    <pre class="terminal">gcc main.o vec.o -o app -lm                # link (-lm: the maths library for sqrt)</pre>
+    <pre class="terminal">./app
+a + b = (4, 2)
+2a = (6, 8)
+|a| = 5
+3 vector operations</pre>
+    <p>For small projects you can do it all in one command, <code>gcc -Wall -Wextra main.c vec.c -o app -lm</code>, which compiles both and links them. Note that you never compile the <code>.h</code> files: they get compiled as part of every <code>.c</code> that includes them.</p>
+    <p>Knowing the two steps makes the two classic errors easy to read:</p>
+    <ul>
+        <li><code>undefined reference to `vec_add'</code> is a <strong>linker</strong> error. Something called <code>vec_add</code>, and the header promised it exists, but no object file defined it. You probably forgot to compile or link <code>vec.c</code>, or misspelled the function in the definition.</li>
+        <li><code>multiple definition of `vec_ops'</code> is also a linker error: two object files both defined it. Usually that's a variable (or a non-<code>static</code> function body) defined in a header.</li>
+    </ul>
+
+    <h3>A first Makefile</h3>
+    <p>Typing those commands gets old quickly, and remembering which files need recompiling is error-prone. The classic tool is <code>make</code>. A <code>Makefile</code> lists each <strong>target</strong>, the files it depends on, and the command that builds it:</p>
+    <figure class="code-figure"><figcaption>Makefile</figcaption><pre class="code-static has-title"><code>CC     = gcc
+CFLAGS = -std=c17 -Wall -Wextra -g
+LDLIBS = -lm
+
+app: main.o vec.o
+	$(CC) $(CFLAGS) -o app main.o vec.o $(LDLIBS)
+
+main.o: main.c vec.h
+	$(CC) $(CFLAGS) -c main.c
+
+vec.o: vec.c vec.h
+	$(CC) $(CFLAGS) -c vec.c
+
+.PHONY: clean
+clean:
+	rm -f app *.o</code></pre></figure>
+    <p>Now <code>make</code> builds <code>app</code>, and on later runs it compares file timestamps and rebuilds only what's out of date: edit <code>vec.c</code> and it recompiles <code>vec.o</code> and relinks, leaving <code>main.o</code> alone. <code>make clean</code> deletes the build products. One gotcha: the command lines <strong>must</strong> start with a real tab character, not spaces.</p>
+    <pre class="terminal">make
+gcc -std=c17 -Wall -Wextra -g -c main.c
+gcc -std=c17 -Wall -Wextra -g -c vec.c
+gcc -std=c17 -Wall -Wextra -g -o app main.o vec.o -lm</pre>
+
+    <h3>The same program, all in one file</h3>
+    <p>The runner on this page compiles a single file, so here's the vector module with the three files stacked together. The comments mark where each file begins. Notice that the "header" part is just declarations, and everything still works because each name is declared before it's used.</p>
+    <script type="text/c">
+        // ===== vec.h =====
+        #ifndef VEC_H
+        #define VEC_H
+
+        typedef struct {
+            double x, y;
+        } Vec;
+
+        Vec    vec_add(Vec a, Vec b);
+        Vec    vec_scale(Vec v, double k);
+        double vec_length(Vec v);
+        void   vec_print(const char *label, Vec v);
+
+        extern int vec_ops;
+
+        #endif
+
+        // ===== vec.c =====
+        #include <math.h>
+        #include <stdio.h>
+
+        int vec_ops = 0;
+
+        static double square(double v) {
+            return v * v;
+        }
+
+        Vec vec_add(Vec a, Vec b) {
+            vec_ops++;
+            return (Vec){ a.x + b.x, a.y + b.y };
+        }
+
+        Vec vec_scale(Vec v, double k) {
+            vec_ops++;
+            return (Vec){ v.x * k, v.y * k };
+        }
+
+        double vec_length(Vec v) {
+            vec_ops++;
+            return sqrt(square(v.x) + square(v.y));
+        }
+
+        void vec_print(const char *label, Vec v) {
+            printf("%s = (%g, %g)\n", label, v.x, v.y);
+        }
+
+        // ===== main.c =====
+        int main(void) {
+            Vec a = { 3, 4 };
+            Vec b = { 1, -2 };
+            vec_print("a + b", vec_add(a, b));
+            vec_print("2a", vec_scale(a, 2));
+            printf("|a| = %g\n", vec_length(a));
+            printf("%d vector operations\n", vec_ops);
+            return 0;
+        }
+    </script>
+
+    <h2>Exercises</h2>
+
+    <div class="exercise" data-id="pp-max-macro">
+        <h3>Fix the <code>MAX</code> macro</h3>
+        <p>The <code>MAX</code> macro below is missing parentheses, so some of the results are wrong. Fix the macro (and only the macro) so the program prints the correct maximum on every line.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            #define MAX(a, b) a > b ? a : b
+
+            int main(void) {
+                printf("%d\n", MAX(3, 7));
+                printf("%d\n", MAX(2 + 5, 4));
+                printf("%d\n", 10 * MAX(1, 2));
+                printf("%d\n", MAX(-1, -5));
+                printf("%.1f\n", MAX(1.5, 2.5));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            7
+            7
+            20
+            -1
+            2.5
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            #define MAX(a, b) ((a) > (b) ? (a) : (b))
+
+            int main(void) {
+                printf("%d\n", MAX(3, 7));
+                printf("%d\n", MAX(2 + 5, 4));
+                printf("%d\n", 10 * MAX(1, 2));
+                printf("%d\n", MAX(-1, -5));
+                printf("%.1f\n", MAX(1.5, 2.5));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Expand <code>10 * MAX(1, 2)</code> by hand: <code>10 * 1 &gt; 2 ? 1 : 2</code>, which compares 10 with 2 and yields 1. Put parentheses around every use of <code>a</code> and <code>b</code>, <em>and</em> around the whole replacement.</p></details>
+    </div>
+
+    <div class="exercise" data-id="pp-array-len">
+        <h3>An <code>ARRAY_LEN</code> macro</h3>
+        <p>Define a macro <code>ARRAY_LEN(arr)</code> that evaluates to the number of elements in an array, for <em>any</em> element type. The calls are already in place, so you only need to write the macro. (This only works on real arrays, not on pointers. Think about why.)</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            // TODO: #define ARRAY_LEN(arr) ...
+            #define ARRAY_LEN(arr) 0
+
+            int sum(const int *a, size_t n) {
+                int total = 0;
+                for (size_t i = 0; i < n; i++) total += a[i];
+                return total;
+            }
+
+            int main(void) {
+                int primes[] = { 2, 3, 5, 7, 11, 13, 17 };
+                double temps[] = { 21.5, 19.0, 23.25 };
+                char greeting[] = "hello";
+
+                printf("primes: %zu\n", (size_t)ARRAY_LEN(primes));
+                printf("temps: %zu\n", (size_t)ARRAY_LEN(temps));
+                printf("greeting: %zu\n", (size_t)ARRAY_LEN(greeting));
+                printf("sum of primes: %d\n", sum(primes, ARRAY_LEN(primes)));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            primes: 7
+            temps: 3
+            greeting: 6
+            sum of primes: 58
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            #define ARRAY_LEN(arr) (sizeof (arr) / sizeof (arr)[0])
+
+            int sum(const int *a, size_t n) {
+                int total = 0;
+                for (size_t i = 0; i < n; i++) total += a[i];
+                return total;
+            }
+
+            int main(void) {
+                int primes[] = { 2, 3, 5, 7, 11, 13, 17 };
+                double temps[] = { 21.5, 19.0, 23.25 };
+                char greeting[] = "hello";
+
+                printf("primes: %zu\n", (size_t)ARRAY_LEN(primes));
+                printf("temps: %zu\n", (size_t)ARRAY_LEN(temps));
+                printf("greeting: %zu\n", (size_t)ARRAY_LEN(greeting));
+                printf("sum of primes: %d\n", sum(primes, ARRAY_LEN(primes)));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>The whole array's size divided by one element's size: <code>(sizeof (arr) / sizeof (arr)[0])</code>. <code>greeting</code> is 6 because the array includes the <code>'\0'</code>. Inside <code>sum</code>, <code>a</code> is a pointer, so <code>sizeof a</code> would be the size of a pointer, which is why the length has to be computed where the real array is visible.</p></details>
+    </div>
+
+    <div class="exercise" data-id="pp-debug-macros">
+        <h3>Switchable debug macros</h3>
+        <p>When <code>DEBUG</code> is defined, <code>DEBUG_PRINT(msg)</code> should print <code>[debug] &lt;function&gt;: &lt;msg&gt;</code>, and <code>DEBUG_INT(expr)</code> should print <code>[debug] &lt;function&gt;: &lt;expr as written&gt; = &lt;value&gt;</code>, both to <code>stdout</code>. When <code>DEBUG</code> isn't defined, both must expand to nothing useful (the <code>#else</code> branch is done for you). Use <code>__func__</code>, the <code>#</code> operator and <code>do { } while (0)</code>.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            #define DEBUG
+
+            #ifdef DEBUG
+            // TODO: replace these two with real definitions
+            #define DEBUG_PRINT(msg) do { } while (0)
+            #define DEBUG_INT(expr)  do { } while (0)
+            #else
+            #define DEBUG_PRINT(msg) do { } while (0)
+            #define DEBUG_INT(expr)  do { } while (0)
+            #endif
+
+            int sum_to(int n) {
+                DEBUG_PRINT("starting");
+                int total = 0;
+                for (int i = 1; i <= n; i++) {
+                    total += i;
+                }
+                DEBUG_INT(total);
+                DEBUG_INT(total * 2);
+                return total;
+            }
+
+            int main(void) {
+                DEBUG_PRINT("calling sum_to");
+                int r = sum_to(5);
+                printf("result: %d\n", r);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            [debug] main: calling sum_to
+            [debug] sum_to: starting
+            [debug] sum_to: total = 15
+            [debug] sum_to: total * 2 = 30
+            result: 15
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            #define DEBUG
+
+            #ifdef DEBUG
+            #define DEBUG_PRINT(msg) \
+                do { printf("[debug] %s: %s\n", __func__, (msg)); } while (0)
+            #define DEBUG_INT(expr) \
+                do { printf("[debug] %s: %s = %d\n", __func__, #expr, (expr)); } while (0)
+            #else
+            #define DEBUG_PRINT(msg) do { } while (0)
+            #define DEBUG_INT(expr)  do { } while (0)
+            #endif
+
+            int sum_to(int n) {
+                DEBUG_PRINT("starting");
+                int total = 0;
+                for (int i = 1; i <= n; i++) {
+                    total += i;
+                }
+                DEBUG_INT(total);
+                DEBUG_INT(total * 2);
+                return total;
+            }
+
+            int main(void) {
+                DEBUG_PRINT("calling sum_to");
+                int r = sum_to(5);
+                printf("result: %d\n", r);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p><code>__func__</code> is evaluated where the macro is <em>expanded</em>, so it names the calling function. <code>#expr</code> turns the argument into a string, so <code>DEBUG_INT(total * 2)</code> can print <code>"total * 2"</code>. Something like <code>do { printf("[debug] %s: %s = %d\n", __func__, #expr, (expr)); } while (0)</code>.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "What does this print?", "type": "output",
+        "code": "#define DOUBLE(x) x + x\n\nprintf(\"%d\", 3 * DOUBLE(4));",
+        "answer": "16", "explain": "It expands to <code>3 * 4 + 4</code>, which is 12 + 4 = 16, not 24. Writing <code>#define DOUBLE(x) ((x) + (x))</code> fixes it." },
+      { "q": "What's the difference between <code>#include &lt;vec.h&gt;</code> and <code>#include \"vec.h\"</code>?",
+        "choices": ["None; they're interchangeable", "The quoted form searches the including file's directory first, then the system directories", "The angle-bracket form is only allowed for files ending in <code>.h</code>", "The quoted form includes the file only once"],
+        "answer": 1, "explain": "Use quotes for your own project's headers and angle brackets for the standard library and installed libraries. Neither form prevents double inclusion; that's what include guards are for." },
+      { "q": "What does this print?", "type": "output",
+        "code": "#define SQUARE(x) ((x) * (x))\n\nint calls = 0;\nint f(void) { return ++calls; }\n\n/* inside main: */\nint s = SQUARE(f());\nprintf(\"%d %d\", s, calls);",
+        "answer": "2 2", "explain": "<code>SQUARE(f())</code> becomes <code>((f()) * (f()))</code>, so <code>f</code> runs twice, returning 1 and 2. The product is 2 and <code>calls</code> ends at 2. Parentheses can't stop a macro from evaluating its argument twice." },
+      { "q": "Why are multi-statement macros wrapped in <code>do { ... } while (0)</code>?",
+        "choices": ["It makes the macro run faster", "It's required by the C standard for all macros", "It prevents the arguments from being evaluated twice", "It turns the body into a single statement that needs a trailing semicolon, so it works correctly inside <code>if</code>/<code>else</code>"],
+        "answer": 3, "explain": "The do-while-zero loop runs once and behaves exactly like one statement, so <code>if (c) MACRO(x); else ...</code> parses as intended. It does nothing about double evaluation." },
+      { "q": "What does this print?", "type": "output",
+        "code": "#define STR(x) #x\n\nprintf(\"%s\", STR(1 + 2));",
+        "answer": "1 + 2", "accept": ["1+2"], "explain": "<code>#x</code> turns the argument's source text into the string literal <code>\"1 + 2\"</code>. Nothing is evaluated: the preprocessor doesn't do arithmetic on macro arguments." },
+      { "q": "Several <code>.c</code> files need to share one global <code>int counter</code>. What's the right setup?",
+        "choices": ["Put <code>extern int counter;</code> in a header and <code>int counter = 0;</code> in exactly one <code>.c</code> file", "Put <code>int counter = 0;</code> in the header", "Put <code>static int counter = 0;</code> in the header", "Define <code>int counter = 0;</code> in every <code>.c</code> file"],
+        "answer": 0, "explain": "The header declares it for everyone; one source file defines it. A definition in the header (or in every file) gives \"multiple definition\" link errors. <code>static</code> in a header silently gives each file its own separate copy." },
+      { "q": "You build with <code>gcc main.c -o app</code> and get <code>undefined reference to `vec_add'</code>. What's the most likely cause?",
+        "choices": ["<code>vec.h</code> is missing an include guard", "<code>main.c</code> forgot to <code>#include \"vec.h\"</code>", "<code>vec.c</code>, which defines <code>vec_add</code>, wasn't compiled and linked in", "<code>vec_add</code> should be a macro"],
+        "answer": 2, "explain": "\"Undefined reference\" comes from the linker: the call was compiled, but no object file supplied the definition. Build with <code>gcc main.c vec.c -o app</code>. A missing <code>#include</code> would instead produce a compiler warning or error about an implicit declaration." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

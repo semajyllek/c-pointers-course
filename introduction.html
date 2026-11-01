@@ -3,76 +3,223 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Introduction to Pointers</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Pointer Basics · Learn C</title>
+    <meta name="description" content="What a pointer is, how & and * work, and how to read pointer declarations.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
 </head>
 <body>
-    <header>
-        <h1>Introduction to Pointers in C</h1>
-        <a href="index.html">Back to Home</a>
-    </header>
-    <main>
-        <section>
-            <h2>What are Pointers?</h2>
-            <p>Pointers are variables that store the memory address of another variable. They are a powerful feature of the C language.</p>
-            <h3>Basic Pointer Syntax</h3>
-            <pre><code>
-int main() {
-    int x = 10;        // normal integer variable
-    int *p;           // pointer variable
-    p = &x;           // storing the address of x
-    printf("%d", *p); // dereferencing pointer to get value of x
-}
-            </code></pre>
-            <p>In this example, <code>p</code> is a pointer to an integer variable <code>x</code>. The expression <code>&x</code> gets the memory address of <code>x</code>, which is then stored in <code>p</code>.</p>
-        </section>
-        <section>
-            <h2>Quiz: Basics of Pointers</h2>
-            <div id="quiz">
-                <p>1. What does a pointer store?</p>
-                <label for="q1">
-                    <input type="radio" name="q1" value="value"> A value<br>
-                    <input type="radio" name="q1" value="address"> An address<br>
-                    <input type="radio" name="q1" value="string"> A string<br>
-                </label>
+<main>
+    <h1>Pointer Basics</h1>
+    <p class="lead">Every variable lives somewhere in memory, and that somewhere has an address. A pointer is a variable whose value is one of those addresses. That one idea is behind most of what makes C powerful, and most of what makes it dangerous.</p>
 
-                <p>2. How do you declare a pointer in C?</p>
-                <label for="q2">
-                    <input type="radio" name="q2" value="int *p"> int *p<br>
-                    <input type="radio" name="q2" value="pointer p"> pointer p<br>
-                    <input type="radio" name="q2" value="int p*"> int p*<br>
-                </label>
+    <h2>Memory is a row of numbered boxes</h2>
+    <p>Think of your program's memory as a very long row of bytes, each with a number: its <strong>address</strong>. When you write <code>int x = 10;</code>, the compiler reserves a few bytes (usually 4 for an <code>int</code>), puts <code>10</code> in them, and remembers where they are.</p>
+    <p>You can ask for that location with the <strong>address-of operator</strong> <code>&amp;</code>. Run this and you'll see a real address (it changes from run to run):</p>
 
-                <p>3. What operator is used to get the address of a variable?</p>
-                <label for="q3">
-                    <input type="radio" name="q3" value="&"> &<br>
-                    <input type="radio" name="q3" value="*"> *<br>
-                    <input type="radio" name="q3" value="%"> %<br>
-                </label>
+    <script type="text/c">
+        #include <stdio.h>
 
-                <p>4. What does the * operator do when used with a pointer?</p>
-                <label for="q4">
-                    <input type="radio" name="q4" value="Get address"> Get address<br>
-                    <input type="radio" name="q4" value="Dereference"> Dereference<br>
-                    <input type="radio" name="q4" value="Declare pointer"> Declare pointer<br>
-                </label>
+        int main(void) {
+            int x = 10;
+            printf("x holds  %d\n", x);
+            printf("x lives at %p\n", (void *)&x);
+            printf("x takes  %zu bytes\n", sizeof x);
+            return 0;
+        }
+    </script>
 
-                <p>5. Which of the following is a pointer type?</p>
-                <label for="q5">
-                    <input type="radio" name="q5" value="int *p"> int *p<br>
-                    <input type="radio" name="q5" value="int p"> int p<br>
-                    <input type="radio" name="q5" value="pointer p"> pointer p<br>
-                </label>
+    <div class="callout tip">
+        <span class="callout-title">Why the <code>(void *)</code>?</span>
+        <p><code>%p</code> is the format specifier for printing an address. Strictly speaking it expects a <code>void *</code>, so we cast. You'll learn exactly what <code>void *</code> means in Advanced Pointers.</p>
+    </div>
 
-                <br>
-                <button onclick="checkAnswers()">Submit Quiz</button>
-                <div id="result"></div>
-            </div>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2024 Pointers Course - James Kelly</p>
-    </footer>
-    <script src="script.js"></script>
+    <h2>Declaring a pointer</h2>
+    <p>A pointer's type says what kind of thing lives at the address it holds. Read declarations right to left from the name:</p>
+    <script type="text/c" data-static>
+        int    *p;   // p is a pointer to an int
+        char   *c;   // c is a pointer to a char
+        double *d;   // d is a pointer to a double
+    </script>
+    <p>The <code>*</code> belongs to the variable, not the type. <code>int *a, b;</code> makes <code>a</code> a pointer and <code>b</code> a plain <code>int</code>, which catches a lot of people. Declare one pointer per line and you'll never be bitten by it.</p>
+
+    <h2>The two operators: <code>&amp;</code> and <code>*</code></h2>
+    <table>
+        <thead><tr><th>Expression</th><th>Read it as</th><th>Gives you</th></tr></thead>
+        <tbody>
+            <tr><td><code>&amp;x</code></td><td>"address of x"</td><td>a pointer to <code>x</code></td></tr>
+            <tr><td><code>*p</code></td><td>"the thing p points to"</td><td>the value stored at the address in <code>p</code> (you can read <em>or</em> write it)</td></tr>
+        </tbody>
+    </table>
+    <p>Using <code>*</code> on a pointer is called <strong>dereferencing</strong>. Step through the program below and watch the arrow: once <code>p</code> holds the address of <code>x</code>, writing through <code>*p</code> changes <code>x</code> itself.</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+
+            int main(void) {
+                int x = 10;
+                int *p;
+                p = &x;
+                *p = 25;
+                printf("%d %d\n", x, *p);
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "heap": false,
+          "steps": [
+            { "line": 3, "note": "<code>main</code> starts. Its stack frame is created, but no variables are initialised yet.", "stack": [{ "fn": "main", "vars": [] }] },
+            { "line": 4, "note": "<code>int x = 10;</code> reserves 4 bytes at some address (here <code>0x7ffc10</code>) and stores <code>10</code> there.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc10", "value": "10" }] }] },
+            { "line": 5, "note": "<code>int *p;</code> creates a pointer but doesn't initialise it. It holds garbage, whatever bytes happened to be there. Dereferencing it now would be <strong>undefined behaviour</strong>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc10", "value": "10" }, { "name": "p", "type": "int *", "addr": "0x7ffc18", "value": "?" }] }] },
+            { "line": 6, "note": "<code>p = &amp;x;</code> stores the <em>address</em> of <code>x</code> in <code>p</code>. Now <code>p</code> points to <code>x</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc10", "value": "10" }, { "name": "p", "type": "int *", "addr": "0x7ffc18", "value": "0x7ffc10", "ptr": "0x7ffc10" }] }] },
+            { "line": 7, "note": "<code>*p = 25;</code> follows the arrow and writes <code>25</code> into the box it points at. That box <em>is</em> <code>x</code>. <code>p</code> itself didn't change.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc10", "value": "25" }, { "name": "p", "type": "int *", "addr": "0x7ffc18", "value": "0x7ffc10", "ptr": "0x7ffc10" }] }] },
+            { "line": 8, "note": "Both <code>x</code> and <code>*p</code> name the same memory, so both print <code>25</code>.", "output": "25 25",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc10", "value": "25" }, { "name": "p", "type": "int *", "addr": "0x7ffc18", "value": "0x7ffc10", "ptr": "0x7ffc10" }] }] },
+            { "line": 9, "note": "<code>main</code> returns and its frame, including <code>x</code> and <code>p</code>, is gone.", "output": "25 25", "stack": [] }
+          ]
+        }
+        </script>
+    </div>
+
+    <h3>The <code>*</code> means two different things</h3>
+    <p>This trips up nearly everyone at first:</p>
+    <ul>
+        <li>In a <strong>declaration</strong> (<code>int *p;</code>), <code>*</code> means "p is a pointer".</li>
+        <li>In an <strong>expression</strong> (<code>*p = 25;</code>), <code>*</code> means "go to the address in p".</li>
+    </ul>
+    <p>So <code>int *p = &amp;x;</code> is a declaration with an initialiser. It sets <code>p</code> (not <code>*p</code>) to <code>&amp;x</code>.</p>
+
+    <h2>NULL: pointing at nothing</h2>
+    <p>A pointer that doesn't point anywhere yet should be set to <code>NULL</code>. You can test for it before dereferencing, and dereferencing <code>NULL</code> reliably crashes instead of silently corrupting memory.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int *p = NULL;
+
+            if (p == NULL) {
+                printf("p doesn't point anywhere yet\n");
+            }
+
+            int value = 42;
+            p = &value;
+            if (p != NULL) {
+                printf("now *p is %d\n", *p);
+            }
+            return 0;
+        }
+    </script>
+
+    <div class="callout danger">
+        <span class="callout-title">Never dereference an uninitialised pointer</span>
+        <p><code>int *p; *p = 5;</code> writes 5 to a random address. It might crash, it might corrupt another variable, or it might appear to work until it doesn't. Always initialise pointers, either to a real address or to <code>NULL</code>.</p>
+    </div>
+
+    <h2>Pointers have types for a reason</h2>
+    <p>Every address is just a number, so why does C care whether it's an <code>int *</code> or a <code>double *</code>? Because dereferencing has to know <em>how many bytes to read and how to interpret them</em>. <code>*p</code> on an <code>int *</code> reads 4 bytes as an integer; on a <code>double *</code> it reads 8 bytes as a floating-point number. The type is also what makes pointer arithmetic work, which is the next lesson.</p>
+
+    <div class="exercise" data-id="swap-through-pointers">
+        <h3>Change variables through pointers</h3>
+        <p>Complete the program so it prints <code>a=7 b=3</code>. You may <strong>only</strong> modify <code>a</code> and <code>b</code> through <code>pa</code> and <code>pb</code>. Don't write <code>a =</code> or <code>b =</code> anywhere.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                int a = 3;
+                int b = 7;
+                int *pa = &a;
+                int *pb = &b;
+
+                // TODO: swap the values of a and b using only pa and pb
+                // (hint: you'll need a temporary int)
+
+                printf("a=%d b=%d\n", a, b);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            a=7 b=3
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                int a = 3;
+                int b = 7;
+                int *pa = &a;
+                int *pb = &b;
+
+                int tmp = *pa;
+                *pa = *pb;
+                *pb = tmp;
+
+                printf("a=%d b=%d\n", a, b);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Save <code>*pa</code> in <code>int tmp</code>, then copy <code>*pb</code> into <code>*pa</code>, then copy <code>tmp</code> into <code>*pb</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="pointer-to-double">
+        <h3>Your own pointer</h3>
+        <p>Declare a <code>double</code> called <code>price</code> set to <code>9.5</code>, and a pointer <code>pp</code> pointing to it. Use <strong>only</strong> <code>pp</code> to double the price, then print it with <code>printf("%.2f\n", price);</code></p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                // your code here
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            19.00
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                double price = 9.5;
+                double *pp = &price;
+                *pp = *pp * 2;
+                printf("%.2f\n", price);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>The pointer's type has to match: <code>double *pp = &amp;price;</code>. Then <code>*pp = *pp * 2;</code> (or <code>*pp *= 2;</code>).</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "What does a pointer variable store?",
+        "choices": ["A copy of another variable's value", "A memory address", "The name of another variable", "The size of another variable"],
+        "answer": 1, "explain": "A pointer's value is an address. The pointer type tells C what kind of value lives at that address." },
+      { "q": "Given <code>int x = 5; int *p = &amp;x;</code>, which expression has the value <code>5</code>?",
+        "choices": ["<code>p</code>", "<code>&amp;p</code>", "<code>*p</code>", "<code>&amp;x</code>"],
+        "answer": 2, "explain": "<code>*p</code> dereferences <code>p</code>, giving the int it points to. <code>p</code> and <code>&amp;x</code> are both the address of <code>x</code>; <code>&amp;p</code> is the address of the pointer itself." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int x = 4;\nint *p = &x;\n*p = *p + 3;\nprintf(\"%d\", x);",
+        "answer": "7", "explain": "<code>*p</code> <em>is</em> <code>x</code>, so <code>*p = *p + 3</code> sets <code>x</code> to 7." },
+      { "q": "In <code>int *a, b;</code> what is the type of <code>b</code>?",
+        "choices": ["<code>int *</code>", "<code>int</code>", "It's a compile error", "<code>int **</code>"],
+        "answer": 1, "explain": "The <code>*</code> attaches to <code>a</code> only. <code>b</code> is a plain <code>int</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int a = 1, b = 2;\nint *p = &a;\np = &b;\n*p = 10;\nprintf(\"%d %d\", a, b);",
+        "answer": "1 10", "explain": "<code>p</code> was redirected to <code>b</code> before the write, so only <code>b</code> changes." },
+      { "q": "Why is <code>int *p; *p = 3;</code> a bug?",
+        "choices": ["You can't assign to <code>*p</code>", "<code>p</code> is uninitialised, so it points to an unknown address", "3 is not a pointer", "It isn't a bug"],
+        "answer": 1, "explain": "An uninitialised pointer holds garbage. Writing through it is undefined behaviour. Initialise to a valid address or <code>NULL</code>." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
 </body>
 </html>

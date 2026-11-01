@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operators &amp; Expressions · Learn C</title>
+    <meta name="description" content="Arithmetic, integer division and remainder, type promotion and casts, increment, comparison and logical operators, precedence, bitwise operators and the ternary operator.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>Operators &amp; Expressions</h1>
+    <p class="lead">An <strong>expression</strong> is anything that produces a value: <code>42</code>, <code>x</code>, <code>price * 1.2</code>, <code>a &gt; b</code>. Operators are how you build them. Most will look familiar from maths, but C has a few rules, especially around integer division, types and precedence, that surprise everyone once. Better that it happens here.</p>
+
+    <h2>Arithmetic</h2>
+    <table>
+        <thead><tr><th>Operator</th><th>Meaning</th><th>Example</th><th>Result</th></tr></thead>
+        <tbody>
+            <tr><td><code>+</code></td><td>addition</td><td><code>7 + 2</code></td><td><code>9</code></td></tr>
+            <tr><td><code>-</code></td><td>subtraction (or negation: <code>-x</code>)</td><td><code>7 - 2</code></td><td><code>5</code></td></tr>
+            <tr><td><code>*</code></td><td>multiplication</td><td><code>7 * 2</code></td><td><code>14</code></td></tr>
+            <tr><td><code>/</code></td><td>division</td><td><code>7 / 2</code></td><td><code>3</code> (!)</td></tr>
+            <tr><td><code>%</code></td><td>remainder (integers only)</td><td><code>7 % 2</code></td><td><code>1</code></td></tr>
+        </tbody>
+    </table>
+    <p>Yes, <code>7 / 2</code> is <code>3</code>. That's the first big surprise.</p>
+
+    <h2>Integer division and the remainder</h2>
+    <p>When <em>both</em> operands of <code>/</code> are integers, C performs <strong>integer division</strong>: the result is an integer, and any fractional part is thrown away. It isn't rounded; it's cut off. The <code>%</code> operator gives you what was thrown away, the remainder:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int total_minutes = 135;
+            int hours = total_minutes / 60;
+            int minutes = total_minutes % 60;
+            printf("%d minutes is %dh %dm\n", total_minutes, hours, minutes);
+
+            printf("17 / 5 = %d, 17 %% 5 = %d\n", 17 / 5, 17 % 5);
+            printf("19 / 5 = %d (not 4: no rounding)\n", 19 / 5);
+            return 0;
+        }
+    </script>
+    <p>The pair <code>/</code> and <code>%</code> always satisfies <code>(a / b) * b + a % b == a</code>. That makes <code>%</code> wonderfully useful: <code>n % 2 == 0</code> tests whether <code>n</code> is even, <code>n % 10</code> gives the last decimal digit, and <code>n / 10</code> chops it off.</p>
+
+    <h3>Negative numbers truncate toward zero</h3>
+    <p>Since C99, integer division always <strong>truncates toward zero</strong>, so <code>-7 / 2</code> is <code>-3</code>, not <code>-4</code>. And because of the identity above, the remainder takes the sign of the <em>left</em> operand: <code>-7 % 2</code> is <code>-1</code>. This is different from Python, where <code>-7 // 2</code> is <code>-4</code> and <code>-7 % 2</code> is <code>1</code>.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            printf(" 7 /  2 = %2d    7 %%  2 = %2d\n",  7 /  2,  7 %  2);
+            printf("-7 /  2 = %2d   -7 %%  2 = %2d\n", -7 /  2, -7 %  2);
+            printf(" 7 / -2 = %2d    7 %% -2 = %2d\n",  7 / -2,  7 % -2);
+            printf("-7 / -2 = %2d   -7 %% -2 = %2d\n", -7 / -2, -7 % -2);
+            return 0;
+        }
+    </script>
+    <div class="callout warn">
+        <span class="callout-title">Odd-number tests and negatives</span>
+        <p>Because <code>-3 % 2</code> is <code>-1</code>, the test <code>n % 2 == 1</code> is <em>false</em> for negative odd numbers. Write <code>n % 2 != 0</code> to test for odd numbers.</p>
+    </div>
+    <div class="callout danger">
+        <span class="callout-title">Dividing by zero</span>
+        <p>Integer division or remainder by zero is <strong>undefined behaviour</strong>. On most machines it crashes the program. (So does <code>INT_MIN / -1</code>, since the answer doesn't fit in an <code>int</code>.) Check the divisor first whenever it could be zero.</p>
+    </div>
+
+    <h2>Mixing types: promotion and casts</h2>
+    <p>If either operand of an arithmetic operator is a floating-point type, the other is converted to match before the operation, and the result is floating-point. So <code>7 / 2.0</code> is <code>3.5</code>. These automatic <strong>usual arithmetic conversions</strong> always convert towards the "bigger" type: <code>int</code> to <code>double</code>, <code>float</code> to <code>double</code>, and so on. (Small types like <code>char</code> and <code>short</code> are also <em>promoted</em> to <code>int</code> before any arithmetic.)</p>
+    <p>The trap is that the conversion happens <em>per operation</em>, based on that operation's operands, not on where the result ends up:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int sum = 17;
+            int count = 4;
+
+            double wrong = sum / count;            // int / int = 4, then converted to 4.0
+            double right = (double)sum / count;    // 17.0 / 4 = 4.25
+
+            printf("wrong: %.2f\n", wrong);
+            printf("right: %.2f\n", right);
+            printf("also:  %.2f\n", sum / 4.0);
+            return 0;
+        }
+    </script>
+    <p>Storing the result in a <code>double</code> doesn't help: by the time it's stored, the integer division has already thrown away the <code>.25</code>. The fix is a <strong>cast</strong>: <code>(double)sum</code> converts <code>sum</code> to a <code>double</code> for that expression, so the division is done in floating-point. The cast applies to <code>sum</code> only, but that's enough; <code>count</code> is then promoted automatically.</p>
+    <p>Be careful where you put the cast: <code>(double)(sum / count)</code> is still <code>4.0</code>, because the parentheses make the integer division happen first.</p>
+    <p>Casting the other way, from floating-point to integer, <strong>truncates toward zero</strong>: <code>(int)3.99</code> is <code>3</code> and <code>(int)-3.99</code> is <code>-3</code>. (If the value is too large to fit in the target integer type, that's undefined behaviour.)</p>
+
+    <h2>Assignment and compound assignment</h2>
+    <p>In C, assignment is itself an expression: <code>x = 5</code> stores 5 and has the value 5. That's why <code>a = b = 0;</code> works (it's <code>a = (b = 0)</code>). It's also behind one of the most famous C bugs, which we'll see below.</p>
+    <p>"Update a variable using its own value" is so common that C has shorthand for it:</p>
+    <table>
+        <thead><tr><th>Shorthand</th><th>Means</th></tr></thead>
+        <tbody>
+            <tr><td><code>x += 5</code></td><td><code>x = x + 5</code></td></tr>
+            <tr><td><code>x -= 5</code></td><td><code>x = x - 5</code></td></tr>
+            <tr><td><code>x *= 5</code></td><td><code>x = x * 5</code></td></tr>
+            <tr><td><code>x /= 5</code></td><td><code>x = x / 5</code></td></tr>
+            <tr><td><code>x %= 5</code></td><td><code>x = x % 5</code></td></tr>
+        </tbody>
+    </table>
+    <p>There are also <code>&amp;=</code>, <code>|=</code>, <code>^=</code>, <code>&lt;&lt;=</code> and <code>&gt;&gt;=</code> for the bitwise operators. Note that <code>x *= a + b</code> means <code>x = x * (a + b)</code>: the whole right-hand side is evaluated first.</p>
+
+    <h2>Increment and decrement</h2>
+    <p><code>++</code> adds one to a variable and <code>--</code> subtracts one. Each comes in two forms, and the difference is the <em>value of the expression</em>:</p>
+    <ul>
+        <li><strong>Prefix</strong> <code>++i</code>: increment <code>i</code>, and the expression's value is the <em>new</em> value.</li>
+        <li><strong>Postfix</strong> <code>i++</code>: increment <code>i</code>, but the expression's value is the <em>old</em> value.</li>
+    </ul>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int i = 5;
+            int a = ++i;    // i becomes 6, a gets 6
+            printf("after a = ++i: i = %d, a = %d\n", i, a);
+
+            int j = 5;
+            int b = j++;    // b gets 5, then j becomes 6
+            printf("after b = j++: j = %d, b = %d\n", j, b);
+
+            int k = 5;
+            k--;            // on its own line, prefix and postfix do the same thing
+            printf("after k--: k = %d\n", k);
+            return 0;
+        }
+    </script>
+    <p>When <code>++</code> or <code>--</code> is a statement on its own, like <code>count++;</code>, the two forms are identical. The difference only matters when you use the value.</p>
+
+    <div class="callout danger">
+        <span class="callout-title">Don't modify a variable twice in one expression</span>
+        <p>Lines like <code>i = i++;</code>, <code>i++ + i++</code> or <code>printf("%d %d", i, i++)</code> are <strong>undefined behaviour</strong>. C doesn't say in which order the parts of an expression are evaluated, and modifying a variable while also reading or modifying it elsewhere in the same expression, without a sequence point in between, breaks the rules. Different compilers really do give different answers. The fix is simple: if you increment a variable, don't mention it again in the same expression.</p>
+    </div>
+    <script type="text/c" data-static>
+        i = i++;              // undefined behaviour
+        a[i] = i++;           // undefined behaviour
+        printf("%d %d\n", i, ++i);   // undefined behaviour
+
+        i++;                  // fine
+        a[i] = i + 1;         // fine: i is only read
+    </script>
+
+    <h2>Comparison operators</h2>
+    <p>Comparisons produce an <code>int</code>: <strong>1</strong> if true, <strong>0</strong> if false. C has no separate boolean result type for them (<code>bool</code> is just a type you can store them in).</p>
+    <table>
+        <thead><tr><th>Operator</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td><code>==</code></td><td>equal to</td></tr>
+            <tr><td><code>!=</code></td><td>not equal to</td></tr>
+            <tr><td><code>&lt;</code> <code>&lt;=</code></td><td>less than, less than or equal</td></tr>
+            <tr><td><code>&gt;</code> <code>&gt;=</code></td><td>greater than, greater than or equal</td></tr>
+        </tbody>
+    </table>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int age = 20;
+            printf("age >= 18 is %d\n", age >= 18);
+            printf("age == 21 is %d\n", age == 21);
+            printf("age != 21 is %d\n", age != 21);
+            return 0;
+        }
+    </script>
+    <p>One thing comparisons can't do is chain like in maths. <code>0 &lt; x &lt; 10</code> means <code>(0 &lt; x) &lt; 10</code>: the first comparison gives 0 or 1, and both are less than 10, so it's <em>always</em> true. Write <code>0 &lt; x &amp;&amp; x &lt; 10</code> instead.</p>
+
+    <h3>The <code>=</code> vs <code>==</code> bug</h3>
+    <p>This is perhaps the most famous bug in C. Because assignment is an expression with a value, this compiles:</p>
+    <script type="text/c" data-static>
+        int x = 3;
+        if (x = 5) {           // assigns 5 to x; the value 5 is nonzero, so this is "true"
+            printf("x is five!\n");   // always runs, and x is now 5
+        }
+
+        if (x == 5) {          // what was meant: compares x with 5
+            printf("x is five!\n");
+        }
+    </script>
+    <p><code>if (x = 5)</code> doesn't compare anything. It overwrites <code>x</code>, and since 5 is nonzero (true), the branch always runs. Fortunately, with <code>-Wall</code> both gcc and clang warn about it (gcc says "suggest parentheses around assignment used as truth value"). This is exactly why you keep warnings on.</p>
+
+    <h2>Logical operators and short-circuiting</h2>
+    <table>
+        <thead><tr><th>Operator</th><th>Meaning</th><th>True when</th></tr></thead>
+        <tbody>
+            <tr><td><code>a &amp;&amp; b</code></td><td>logical AND</td><td>both are nonzero</td></tr>
+            <tr><td><code>a || b</code></td><td>logical OR</td><td>at least one is nonzero</td></tr>
+            <tr><td><code>!a</code></td><td>logical NOT</td><td><code>a</code> is zero</td></tr>
+        </tbody>
+    </table>
+    <p>Like comparisons, they give 1 or 0. Any nonzero operand counts as true, so <code>!5</code> is <code>0</code> and <code>!0</code> is <code>1</code>.</p>
+    <p><code>&amp;&amp;</code> and <code>||</code> also <strong>short-circuit</strong>: they evaluate left to right and stop as soon as the answer is known. If the left side of <code>&amp;&amp;</code> is false, the right side is never evaluated; if the left side of <code>||</code> is true, the right side is skipped. This isn't just an optimisation; it's guaranteed, and you can rely on it to guard a dangerous operation:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int total = 50;
+            int people = 0;
+
+            // Safe: if people is 0, the division is never evaluated.
+            if (people != 0 && total / people > 10) {
+                printf("more than 10 each\n");
+            } else {
+                printf("nobody to share with, or not much each\n");
+            }
+
+            int checked = 0;
+            int ok = 1 || (checked = 1);   // right side skipped: 1 || anything is 1
+            printf("ok = %d, checked = %d\n", ok, checked);
+            return 0;
+        }
+    </script>
+    <p>Swap the two conditions in the first <code>if</code> and the program would divide by zero. Order matters.</p>
+
+    <h2>Precedence: who binds tighter?</h2>
+    <p>When an expression mixes operators, <strong>precedence</strong> decides which goes first, just like multiplication before addition in maths. Here's a simplified table, from tightest to loosest:</p>
+    <table>
+        <thead><tr><th>Level</th><th>Operators</th></tr></thead>
+        <tbody>
+            <tr><td>1 (tightest)</td><td>postfix <code>x++</code> <code>x--</code>, function call <code>f()</code>, <code>a[i]</code></td></tr>
+            <tr><td>2</td><td>unary <code>!</code> <code>~</code> <code>-x</code> <code>++x</code> <code>--x</code>, casts, <code>sizeof</code>, <code>&amp;x</code> <code>*p</code></td></tr>
+            <tr><td>3</td><td><code>*</code> <code>/</code> <code>%</code></td></tr>
+            <tr><td>4</td><td><code>+</code> <code>-</code></td></tr>
+            <tr><td>5</td><td><code>&lt;&lt;</code> <code>&gt;&gt;</code></td></tr>
+            <tr><td>6</td><td><code>&lt;</code> <code>&lt;=</code> <code>&gt;</code> <code>&gt;=</code></td></tr>
+            <tr><td>7</td><td><code>==</code> <code>!=</code></td></tr>
+            <tr><td>8</td><td><code>&amp;</code> then <code>^</code> then <code>|</code></td></tr>
+            <tr><td>9</td><td><code>&amp;&amp;</code> then <code>||</code></td></tr>
+            <tr><td>10</td><td><code>? :</code></td></tr>
+            <tr><td>11 (loosest)</td><td><code>=</code> <code>+=</code> <code>-=</code> etc.</td></tr>
+        </tbody>
+    </table>
+    <p>Most of it does what you'd expect: <code>a + b * c</code> multiplies first, and <code>x &gt; 0 &amp;&amp; y &gt; 0</code> compares before combining. The notorious exception is the bitwise operators, which bind <em>more loosely</em> than <code>==</code>:</p>
+    <script type="text/c" data-static>
+        if (flags & 4 == 0)     // parsed as flags & (4 == 0), i.e. flags & 0, always 0!
+        if ((flags & 4) == 0)   // what was meant
+    </script>
+    <p>A similar surprise: <code>1 &lt;&lt; 2 + 1</code> is <code>1 &lt;&lt; 3</code> (8), not <code>(1 &lt;&lt; 2) + 1</code> (5), because shifts bind more loosely than <code>+</code>.</p>
+    <div class="callout tip">
+        <span class="callout-title">When in doubt, add parentheses</span>
+        <p>Nobody remembers the whole precedence table, and readers of your code won't either. Parentheses cost nothing and make your intent unambiguous. Use them freely, especially around bitwise operations and whenever you mix <code>&amp;&amp;</code> with <code>||</code>.</p>
+    </div>
+
+    <h2>Bitwise operators</h2>
+    <p>Bitwise operators work on the individual bits of an integer. They're how C talks to hardware registers, packs many yes/no flags into one number, and implements fast arithmetic tricks. Using 8-bit values for readability:</p>
+    <table>
+        <thead><tr><th>Operator</th><th>Name</th><th>Example (binary)</th><th>Result</th></tr></thead>
+        <tbody>
+            <tr><td><code>a &amp; b</code></td><td>AND: 1 where <em>both</em> bits are 1</td><td><code>1100 &amp; 1010</code></td><td><code>1000</code></td></tr>
+            <tr><td><code>a | b</code></td><td>OR: 1 where <em>either</em> bit is 1</td><td><code>1100 | 1010</code></td><td><code>1110</code></td></tr>
+            <tr><td><code>a ^ b</code></td><td>XOR: 1 where the bits <em>differ</em></td><td><code>1100 ^ 1010</code></td><td><code>0110</code></td></tr>
+            <tr><td><code>~a</code></td><td>NOT: flips every bit</td><td><code>~00001100</code></td><td><code>11110011</code></td></tr>
+            <tr><td><code>a &lt;&lt; n</code></td><td>shift left by <code>n</code> (multiplies by 2<sup>n</sup>)</td><td><code>0011 &lt;&lt; 2</code></td><td><code>1100</code></td></tr>
+            <tr><td><code>a &gt;&gt; n</code></td><td>shift right by <code>n</code> (divides by 2<sup>n</sup>)</td><td><code>1100 &gt;&gt; 2</code></td><td><code>0011</code></td></tr>
+        </tbody>
+    </table>
+    <p>Don't confuse <code>&amp;</code> with <code>&amp;&amp;</code>, or <code>|</code> with <code>||</code>. <code>6 &amp;&amp; 1</code> is <code>1</code> (both are true), but <code>6 &amp; 1</code> is <code>0</code> (110 and 001 share no bits).</p>
+
+    <h3>Example: permission flags</h3>
+    <p>A classic use is storing several on/off settings in one integer, one bit each. Give each flag its own bit with <code>1u &lt;&lt; n</code>, then:</p>
+    <ul>
+        <li><strong>set</strong> a flag with <code>|=</code>,</li>
+        <li><strong>clear</strong> it with <code>&amp;= ~</code>,</li>
+        <li><strong>toggle</strong> it with <code>^=</code>,</li>
+        <li><strong>test</strong> it with <code>&amp;</code>.</li>
+    </ul>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            const unsigned READ  = 1u << 0;   // binary 001
+            const unsigned WRITE = 1u << 1;   // binary 010
+            const unsigned EXEC  = 1u << 2;   // binary 100
+
+            unsigned perms = 0;
+            perms |= READ;            // set READ        -> 001
+            perms |= WRITE;           // set WRITE       -> 011
+            printf("perms = %u\n", perms);
+
+            perms &= ~WRITE;          // clear WRITE     -> 001
+            perms ^= EXEC;            // toggle EXEC on  -> 101
+            printf("perms = %u\n", perms);
+
+            printf("can read?  %s\n", (perms & READ)  ? "yes" : "no");
+            printf("can write? %s\n", (perms & WRITE) ? "yes" : "no");
+            printf("can exec?  %s\n", (perms & EXEC)  ? "yes" : "no");
+            return 0;
+        }
+    </script>
+    <p>This is exactly how Unix file permissions work: <code>chmod 755</code> is three groups of these bits.</p>
+    <div class="callout warn">
+        <span class="callout-title">Use unsigned types for bit manipulation</span>
+        <p>Shifting a 1 into or past the sign bit of a signed <code>int</code>, or left-shifting a negative number, is undefined behaviour, and right-shifting a negative number is implementation-defined. Shifting by a negative amount or by at least the type's width (e.g. <code>x &lt;&lt; 32</code> on a 32-bit int) is undefined for any type. Stick to <code>unsigned</code> values and you avoid nearly all of it.</p>
+    </div>
+
+    <h2>The ternary operator</h2>
+    <p><code>condition ? a : b</code> is an expression that evaluates to <code>a</code> if the condition is true and to <code>b</code> otherwise. Only the chosen side is evaluated. It's handy for small choices inside a larger expression, like the <code>"yes" : "no"</code> above:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int a = 12, b = 7;
+            int bigger = (a > b) ? a : b;
+            printf("bigger of %d and %d is %d\n", a, b, bigger);
+
+            int items = 1;
+            printf("you have %d item%s\n", items, items == 1 ? "" : "s");
+            items = 3;
+            printf("you have %d item%s\n", items, items == 1 ? "" : "s");
+            return 0;
+        }
+    </script>
+    <p>Keep ternaries short. If you find yourself nesting them, an <code>if</code>/<code>else</code> (next lesson) is almost always clearer.</p>
+
+    <div class="exercise" data-id="op-split-seconds" data-stdin="3725">
+        <h3>Hours, minutes, seconds</h3>
+        <p>Read a number of seconds and break it down into hours, minutes and seconds using only <code>/</code> and <code>%</code>. For the input <code>3725</code> the output must be:</p>
+<pre class="terminal">3725s = 1h 2m 5s</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                int total = 0;
+                if (scanf("%d", &total) != 1) {
+                    return 1;
+                }
+
+                // TODO: compute hours, minutes and seconds, then print them
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            3725s = 1h 2m 5s
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                int total = 0;
+                if (scanf("%d", &total) != 1) {
+                    return 1;
+                }
+
+                int hours = total / 3600;
+                int minutes = (total % 3600) / 60;
+                int seconds = total % 60;
+
+                printf("%ds = %dh %dm %ds\n", total, hours, minutes, seconds);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>There are 3600 seconds in an hour, so <code>total / 3600</code> is the hours. What's left over is <code>total % 3600</code>; divide that by 60 for the minutes. The final seconds are <code>total % 60</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="op-average" data-stdin="7 8 10">
+        <h3>A correct average</h3>
+        <p>This program reads three whole-number scores and is supposed to print their average to two decimal places, but it prints <code>8.00</code> instead of <code>8.33</code> for the input <code>7 8 10</code>. Fix the calculation (don't change the variable types) so the output is:</p>
+<pre class="terminal">average: 8.33</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                int a = 0, b = 0, c = 0;
+                if (scanf("%d %d %d", &a, &b, &c) != 3) {
+                    return 1;
+                }
+
+                double average = (a + b + c) / 3;
+
+                printf("average: %.2f\n", average);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            average: 8.33
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                int a = 0, b = 0, c = 0;
+                if (scanf("%d %d %d", &a, &b, &c) != 3) {
+                    return 1;
+                }
+
+                double average = (a + b + c) / 3.0;
+
+                printf("average: %.2f\n", average);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p><code>(a + b + c) / 3</code> is <code>int / int</code>, so the fraction is lost before the result reaches <code>average</code>. Make one operand a <code>double</code>: divide by <code>3.0</code>, or cast with <code>(double)(a + b + c) / 3</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="op-bit-flags">
+        <h3>Flip some bits</h3>
+        <p>Starting from <code>settings = 0</code>, use bitwise operators to: turn on <code>SOUND</code> and <code>MUSIC</code>, print; then turn <code>SOUND</code> off and toggle <code>VIBRATE</code>, print; then print whether <code>MUSIC</code> is on as <code>1</code> or <code>0</code>. Expected output:</p>
+<pre class="terminal">settings = 3
+settings = 6
+music on: 1</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                const unsigned SOUND   = 1u << 0;
+                const unsigned MUSIC   = 1u << 1;
+                const unsigned VIBRATE = 1u << 2;
+
+                unsigned settings = 0;
+
+                // TODO: turn on SOUND and MUSIC
+                printf("settings = %u\n", settings);
+
+                // TODO: turn off SOUND, toggle VIBRATE
+                printf("settings = %u\n", settings);
+
+                // TODO: print 1 if MUSIC is on, 0 if not
+                printf("music on: %d\n", 0);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            settings = 3
+            settings = 6
+            music on: 1
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                const unsigned SOUND   = 1u << 0;
+                const unsigned MUSIC   = 1u << 1;
+                const unsigned VIBRATE = 1u << 2;
+
+                unsigned settings = 0;
+
+                settings |= SOUND | MUSIC;
+                printf("settings = %u\n", settings);
+
+                settings &= ~SOUND;
+                settings ^= VIBRATE;
+                printf("settings = %u\n", settings);
+
+                printf("music on: %d\n", (settings & MUSIC) != 0);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Set with <code>settings |= FLAG;</code>, clear with <code>settings &amp;= ~FLAG;</code>, toggle with <code>settings ^= FLAG;</code>. <code>settings &amp; MUSIC</code> is either 0 or 2, so compare it with <code>!= 0</code> to get exactly 0 or 1.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "What does this print?", "type": "output",
+        "code": "printf(\"%d\", 7 / 2 * 2);",
+        "answer": "6", "explain": "<code>7 / 2</code> is integer division, giving 3. Then <code>3 * 2</code> is 6." },
+      { "q": "What does this print?", "type": "output",
+        "code": "printf(\"%d %d\", -7 / 2, -7 % 2);",
+        "answer": "-3 -1", "explain": "Integer division truncates toward zero, so <code>-7 / 2</code> is -3. The remainder has the sign of the left operand: -1." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int sum = 9;\ndouble avg = sum / 2;\nprintf(\"%.1f\", avg);",
+        "answer": "4.0", "explain": "<code>sum / 2</code> is <code>int / int</code> = 4. Converting to <code>double</code> afterwards can't bring back the lost half." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int i = 3;\nint j = i++;\nint k = ++i;\nprintf(\"%d %d %d\", i, j, k);",
+        "answer": "5 3 5", "explain": "<code>j = i++</code> gets the old value 3 and makes i 4. <code>k = ++i</code> makes i 5 and gets the new value 5." },
+      { "q": "Given <code>int d = 0;</code>, which condition is safe to evaluate?",
+        "choices": ["<code>10 / d &gt; 1 &amp;&amp; d != 0</code>", "<code>d != 0 &amp;&amp; 10 / d &gt; 1</code>", "<code>10 / d &gt; 1 || d == 0</code>", "All of them"],
+        "answer": 1, "explain": "<code>&amp;&amp;</code> short-circuits left to right. With <code>d != 0</code> first, the division is skipped when d is 0. The other two divide by zero first." },
+      { "q": "Why is <code>if (flags &amp; 4 == 0)</code> a bug?",
+        "choices": ["<code>&amp;</code> only works on <code>bool</code>", "It should be <code>&amp;&amp;</code>", "<code>==</code> binds tighter than <code>&amp;</code>, so it means <code>flags &amp; (4 == 0)</code>", "4 is not a valid flag"],
+        "answer": 2, "explain": "Bitwise operators have lower precedence than comparisons. Write <code>(flags &amp; 4) == 0</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "unsigned x = 5;\nprintf(\"%u %u %u\", x & 3, x | 2, x << 1);",
+        "answer": "1 7 10", "explain": "5 is binary 101. <code>101 &amp; 011</code> = 001 (1), <code>101 | 010</code> = 111 (7), and <code>101 &lt;&lt; 1</code> = 1010 (10)." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

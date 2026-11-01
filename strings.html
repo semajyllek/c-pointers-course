@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strings · Learn C</title>
+    <meta name="description" content="Strings as null-terminated char arrays, string literals, string.h, reading lines with fgets, ctype.h and buffer overflows.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>Strings</h1>
+    <p class="lead">C has no built-in string type. A string is simply an array of <code>char</code> with a zero byte marking the end. That one convention explains how every string function works, why you must always leave room for one extra byte, and how a careless copy can overwrite memory it doesn't own.</p>
+
+    <h2>A string is a char array ending in <code>'\0'</code></h2>
+    <p>Each <code>char</code> holds one character as a small number (its character code, so <code>'A'</code> is 65 in ASCII). A string is a run of those chars followed by the <strong>null character</strong>, written <code>'\0'</code>, whose value is 0. The null character isn't printed; it's a marker that says "the string stops here". Any array of chars that has a <code>'\0'</code> in it can be used as a string, and the string is everything before the first <code>'\0'</code>.</p>
+    <p>That's why a string always needs <strong>one more byte than its visible length</strong>. The literal <code>"hi"</code> takes 3 bytes: <code>'h'</code>, <code>'i'</code>, <code>'\0'</code>. The compiler adds the terminator to every string literal for you.</p>
+
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            char word[] = "hi";     // size left out: the compiler counts 3
+
+            printf("sizeof word = %zu\n", sizeof word);
+            for (int i = 0; i < 3; i++) {
+                printf("word[%d] has code %3d\n", i, word[i]);
+            }
+            return 0;
+        }
+    </script>
+    <p>104 and 105 are the ASCII codes for <code>h</code> and <code>i</code>; the third byte is the terminator, code 0. A <code>char</code> is just a small integer, so <code>%d</code> prints its code and <code>%c</code> prints the character it stands for.</p>
+
+    <h3>Single quotes vs double quotes</h3>
+    <table>
+        <thead><tr><th>Written</th><th>What it is</th><th>Size</th></tr></thead>
+        <tbody>
+            <tr><td><code>'a'</code></td><td>a character constant: just the number 97</td><td>one character</td></tr>
+            <tr><td><code>"a"</code></td><td>a string literal: an array of two chars, <code>'a'</code> and <code>'\0'</code></td><td>2 bytes</td></tr>
+            <tr><td><code>""</code></td><td>the empty string: just the terminator</td><td>1 byte</td></tr>
+        </tbody>
+    </table>
+    <p>They aren't interchangeable. <code>char c = "a";</code> is wrong (the compiler will complain), and so is passing <code>'a'</code> where a string is expected. A fun precise detail: in C (unlike C++), a character constant like <code>'a'</code> actually has type <code>int</code>, so <code>sizeof 'a'</code> is usually 4. It only becomes one byte once you store it in a <code>char</code>.</p>
+
+    <h2>Declaring string arrays</h2>
+    <script type="text/c" data-static>
+        char a[6] = "hello";    // exactly enough: 5 letters + '\0'
+        char b[]  = "hello";    // same thing; the compiler counts 6
+        char c[20] = "hi";      // 'h' 'i' '\0', and the other 17 bytes are zero too
+        char d[] = {'h', 'i', '\0'};  // the long way; same as "hi"
+        char e[5] = "hello";    // legal C, but NO room for '\0': not a string!
+    </script>
+    <p>The last line is a nasty trap. C lets you initialise an array with a literal that exactly fills it, silently dropping the terminator. <code>e</code> is five chars with no <code>'\0'</code>, so anything that treats it as a string will run past the end looking for one. Leave the size out, or make sure it's at least one more than the length.</p>
+    <p>Step through to see the bytes of a string, and what happens when you put a <code>'\0'</code> in the middle:</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+
+            int main(void) {
+                char s[6] = "hello";
+                s[0] = 'j';
+                printf("%s\n", s);
+                s[3] = '\0';
+                printf("%s\n", s);
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "heap": false,
+          "steps": [
+            { "line": 3, "note": "<code>main</code> starts.", "stack": [{ "fn": "main", "vars": [] }] },
+            { "line": 4, "note": "<code>char s[6] = \"hello\";</code> copies the literal into six consecutive bytes: five letters and the terminator <code>'\\0'</code>. Each <code>char</code> is one byte, so the addresses go up by 1.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "s", "type": "char[6]", "cells": [{ "addr": "0x7ffd40", "value": "'h'" }, { "addr": "0x7ffd41", "value": "'e'" }, { "addr": "0x7ffd42", "value": "'l'" }, { "addr": "0x7ffd43", "value": "'l'" }, { "addr": "0x7ffd44", "value": "'o'" }, { "addr": "0x7ffd45", "value": "'\\0'" }] }] }] },
+            { "line": 5, "note": "The array is ours to modify. <code>s[0] = 'j';</code> overwrites one byte.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "s", "type": "char[6]", "cells": [{ "addr": "0x7ffd40", "value": "'j'" }, { "addr": "0x7ffd41", "value": "'e'" }, { "addr": "0x7ffd42", "value": "'l'" }, { "addr": "0x7ffd43", "value": "'l'" }, { "addr": "0x7ffd44", "value": "'o'" }, { "addr": "0x7ffd45", "value": "'\\0'" }] }] }] },
+            { "line": 6, "note": "<code>%s</code> prints chars starting at <code>s[0]</code> until it reaches a <code>'\\0'</code>.", "output": "jello",
+              "stack": [{ "fn": "main", "vars": [{ "name": "s", "type": "char[6]", "cells": [{ "addr": "0x7ffd40", "value": "'j'" }, { "addr": "0x7ffd41", "value": "'e'" }, { "addr": "0x7ffd42", "value": "'l'" }, { "addr": "0x7ffd43", "value": "'l'" }, { "addr": "0x7ffd44", "value": "'o'" }, { "addr": "0x7ffd45", "value": "'\\0'" }] }] }] },
+            { "line": 7, "note": "<code>s[3] = '\\0';</code> plants a terminator in the middle. The <code>'o'</code> is still in memory, but it's no longer part of the string.",
+              "output": "jello",
+              "stack": [{ "fn": "main", "vars": [{ "name": "s", "type": "char[6]", "cells": [{ "addr": "0x7ffd40", "value": "'j'" }, { "addr": "0x7ffd41", "value": "'e'" }, { "addr": "0x7ffd42", "value": "'l'" }, { "addr": "0x7ffd43", "value": "'\\0'" }, { "addr": "0x7ffd44", "value": "'o'" }, { "addr": "0x7ffd45", "value": "'\\0'" }] }] }] },
+            { "line": 8, "note": "<code>printf</code> stops at the <em>first</em> <code>'\\0'</code>, so only three letters are printed. The string's length is now 3 even though the array is still 6 bytes.", "output": "jello\njel",
+              "stack": [{ "fn": "main", "vars": [{ "name": "s", "type": "char[6]", "cells": [{ "addr": "0x7ffd40", "value": "'j'" }, { "addr": "0x7ffd41", "value": "'e'" }, { "addr": "0x7ffd42", "value": "'l'" }, { "addr": "0x7ffd43", "value": "'\\0'" }, { "addr": "0x7ffd44", "value": "'o'" }, { "addr": "0x7ffd45", "value": "'\\0'" }] }] }] },
+            { "line": 10, "note": "<code>main</code> returns.", "output": "jello\njel", "stack": [] }
+          ]
+        }
+        </script>
+    </div>
+
+    <div class="callout tip">
+        <span class="callout-title">Coming soon: <code>char *</code></span>
+        <p>You'll often see strings written as <code>const char *name = "Ada";</code> instead of an array. That's a <em>pointer</em> to the first character of a string literal stored elsewhere, and its characters must not be modified. Pointer Basics explains what that <code>*</code> means; for now, stick with <code>char</code> arrays, which you can always modify.</p>
+    </div>
+
+    <h2>Printing and walking a string</h2>
+    <p><code>printf("%s", s)</code> prints a string, and <code>puts(s)</code> prints it followed by a newline. Neither needs to be told the length: they keep going until <code>'\0'</code>. Your own code can do exactly the same thing. Loop until you reach the terminator:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int count_char(const char s[], char target) {
+            int count = 0;
+            for (int i = 0; s[i] != '\0'; i++) {
+                if (s[i] == target) {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        int main(void) {
+            char text[] = "mississippi";
+            puts(text);
+            printf("'s' appears %d times\n", count_char(text, 's'));
+            printf("'p' appears %d times\n", count_char(text, 'p'));
+            return 0;
+        }
+    </script>
+    <p>Notice that <code>count_char</code> doesn't take a length parameter, unlike the array functions in the last lesson. The terminator <em>is</em> the length information. This is the whole point of the <code>'\0'</code> convention, and the reason a missing terminator is so damaging: every function that walks the string will keep reading past the end of the array.</p>
+
+    <h2>The <code>&lt;string.h&gt;</code> toolkit</h2>
+    <p>The standard library has functions for the common jobs. Include <code>&lt;string.h&gt;</code> to use them.</p>
+    <table>
+        <thead><tr><th>Function</th><th>Does</th><th>Watch out for</th></tr></thead>
+        <tbody>
+            <tr><td><code>strlen(s)</code></td><td>number of chars before the <code>'\0'</code>, as a <code>size_t</code></td><td>doesn't count the terminator; walks the whole string each call</td></tr>
+            <tr><td><code>strcpy(dst, src)</code></td><td>copies <code>src</code>, including <code>'\0'</code>, into <code>dst</code></td><td><code>dst</code> must be big enough; nothing checks</td></tr>
+            <tr><td><code>strncpy(dst, src, n)</code></td><td>copies at most <code>n</code> chars</td><td>does <strong>not</strong> add <code>'\0'</code> if <code>src</code> is too long</td></tr>
+            <tr><td><code>strcat(dst, src)</code></td><td>appends <code>src</code> to the end of <code>dst</code></td><td><code>dst</code> must have room for both plus <code>'\0'</code></td></tr>
+            <tr><td><code>strcmp(a, b)</code></td><td>compares alphabetically (by char code)</td><td>returns 0 when <em>equal</em></td></tr>
+            <tr><td><code>snprintf(dst, size, fmt, ...)</code></td><td><code>printf</code> into a buffer (from <code>&lt;stdio.h&gt;</code>)</td><td>the safe choice: never writes more than <code>size</code> bytes</td></tr>
+        </tbody>
+    </table>
+
+    <h3><code>strlen</code> vs <code>sizeof</code></h3>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <string.h>
+
+        int main(void) {
+            char name[20] = "Grace";
+            printf("strlen: %zu\n", strlen(name));   // 5: the characters in use
+            printf("sizeof: %zu\n", sizeof name);    // 20: the size of the array
+            return 0;
+        }
+    </script>
+    <p><code>strlen</code> measures the string; <code>sizeof</code> measures the container. They're only related by <code>strlen(s) &lt; sizeof s</code>, since there must be room for the terminator.</p>
+
+    <h3>Copying and joining</h3>
+    <p>Since arrays can't be assigned (<code>dst = "hello";</code> is a compile error after the declaration), copying a string means copying its chars, which is what <code>strcpy</code> does:</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <string.h>
+
+        int main(void) {
+            char greeting[32];
+
+            strcpy(greeting, "Hello");      // greeting = "Hello"
+            strcat(greeting, ", ");         // greeting = "Hello, "
+            strcat(greeting, "world");      // greeting = "Hello, world"
+            printf("%s (%zu chars)\n", greeting, strlen(greeting));
+
+            char small[4];
+            strncpy(small, "abcdef", sizeof small - 1);   // copies "abc" but no '\0'
+            small[sizeof small - 1] = '\0';               // so terminate it yourself
+            printf("%s\n", small);
+            return 0;
+        }
+    </script>
+    <p><code>strncpy</code> looks like a safe <code>strcpy</code>, but it isn't really a string function: if the source is too long it stops after <code>n</code> chars without writing a <code>'\0'</code>, as above. Always terminate manually, or better, use <code>snprintf</code>.</p>
+
+    <h3><code>snprintf</code>: the safe way to build strings</h3>
+    <p><code>snprintf</code> works like <code>printf</code> but writes into an array. You tell it the array's size, and it will never write past it: if the result is too long, it's cut short and still properly terminated. It returns the length the full result <em>would</em> have had, so you can detect truncation.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        void show_score(int score) {
+            char tiny[8];       // room for 7 chars + '\0'
+            int n = snprintf(tiny, sizeof tiny, "score=%d", score);
+            printf("[%s] needed %d chars", tiny, n);
+            if (n >= (int)sizeof tiny) {
+                printf(" -> truncated!");
+            }
+            printf("\n");
+        }
+
+        int main(void) {
+            char label[32];
+            int n = snprintf(label, sizeof label, "Player %d: %s", 7, "Ada");
+            printf("[%s] needed %d chars\n", label, n);
+
+            show_score(4);
+            show_score(12345);
+            return 0;
+        }
+    </script>
+
+    <h3>Comparing: <code>strcmp</code>, not <code>==</code></h3>
+    <p>This compiles, and it's wrong:</p>
+    <script type="text/c" data-static>
+        char a[] = "cat";
+        char b[] = "cat";
+        if (a == b) {           // compares WHERE the arrays are, not what's in them
+            printf("same\n");   // never printed: a and b are different arrays
+        }
+    </script>
+    <p><code>==</code> on two arrays asks whether they are the same array in memory (you'll see exactly why in Pointers &amp; Arrays), and two separate arrays never are, whatever they contain. To compare contents, use <code>strcmp(a, b)</code>, which walks both strings and returns:</p>
+    <ul>
+        <li><strong>0</strong> if they're equal,</li>
+        <li>a <strong>negative</strong> number if <code>a</code> comes first,</li>
+        <li>a <strong>positive</strong> number if <code>b</code> comes first.</li>
+    </ul>
+    <p>The standard only promises the sign, not that it's −1 or 1, so test <code>&lt; 0</code>, <code>== 0</code> or <code>&gt; 0</code>, never <code>== -1</code>. And because "equal" is 0, which is false, <code>if (strcmp(a, b))</code> means "if they're <em>different</em>". Write <code>== 0</code> explicitly.</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <string.h>
+
+        void compare(const char a[], const char b[]) {
+            int r = strcmp(a, b);
+            if (r < 0) {
+                printf("\"%s\" comes before \"%s\"\n", a, b);
+            } else if (r > 0) {
+                printf("\"%s\" comes after \"%s\"\n", a, b);
+            } else {
+                printf("\"%s\" equals \"%s\"\n", a, b);
+            }
+        }
+
+        int main(void) {
+            compare("apple", "banana");
+            compare("cat", "cat");
+            compare("zoo", "zebra");
+            compare("Zebra", "apple");   // uppercase letters have smaller codes
+            compare("car", "card");      // a prefix comes first
+            return 0;
+        }
+    </script>
+    <p>Note the last two: <code>strcmp</code> compares character codes, so every uppercase letter sorts before every lowercase one, and a string sorts before any longer string it's a prefix of (because its <code>'\0'</code> is smaller than any letter).</p>
+
+    <h2>Reading a line of input with <code>fgets</code></h2>
+    <p><code>scanf("%s", buf)</code> reads a single word (it stops at a space) and, without a width like <code>%19s</code>, will happily write past the end of <code>buf</code>. For reading a whole line, use <code>fgets</code>:</p>
+    <script type="text/c" data-static>
+        fgets(buffer, sizeof buffer, stdin);
+    </script>
+    <p>It reads at most <code>sizeof buffer - 1</code> characters, stops after a newline, and always adds the <code>'\0'</code>. Two details to handle:</p>
+    <ul>
+        <li><strong>The newline is kept.</strong> If the user typed <code>Ada</code> and pressed Enter, the buffer holds <code>"Ada\n"</code>. You usually want to strip it.</li>
+        <li><strong>It can fail.</strong> At end of input it returns <code>NULL</code> (a special "nothing" value you'll meet properly in Pointer Basics), and the buffer shouldn't be used.</li>
+    </ul>
+    <script type="text/c" data-stdin="Ada Lovelace">
+        #include <stdio.h>
+        #include <string.h>
+
+        int main(void) {
+            char name[50];
+
+            printf("What's your name? ");
+            if (fgets(name, sizeof name, stdin) == NULL) {
+                printf("\nNo input.\n");
+                return 1;
+            }
+
+            // strip the trailing newline, if there is one
+            size_t len = strlen(name);
+            if (len > 0 && name[len - 1] == '\n') {
+                name[len - 1] = '\0';
+            }
+
+            printf("\nHello, %s! Your name has %zu characters.\n", name, strlen(name));
+            return 0;
+        }
+    </script>
+    <p>Edit the input box and run again. A popular one-line alternative for stripping the newline is <code>name[strcspn(name, "\n")] = '\0';</code>: <code>strcspn</code> returns the index of the first <code>'\n'</code>, or the string's length if there isn't one, so it's safe either way.</p>
+    <div class="callout warn">
+        <span class="callout-title">Never use <code>gets</code></span>
+        <p>Older tutorials use <code>gets(buf)</code>. It has no way to know the buffer's size, so any long line overflows it. It was so dangerous it was removed from the language in C11. Use <code>fgets</code>.</p>
+    </div>
+
+    <h2>Character tests: <code>&lt;ctype.h&gt;</code></h2>
+    <p><code>&lt;ctype.h&gt;</code> classifies and converts single characters. The tests return non-zero (true) or 0 (false):</p>
+    <table>
+        <thead><tr><th>Function</th><th>True for</th></tr></thead>
+        <tbody>
+            <tr><td><code>isdigit(c)</code></td><td><code>'0'</code> to <code>'9'</code></td></tr>
+            <tr><td><code>isalpha(c)</code></td><td>letters</td></tr>
+            <tr><td><code>isalnum(c)</code></td><td>letters or digits</td></tr>
+            <tr><td><code>isspace(c)</code></td><td>space, tab, newline and other whitespace</td></tr>
+            <tr><td><code>isupper(c)</code> / <code>islower(c)</code></td><td>upper- / lowercase letters</td></tr>
+        </tbody>
+    </table>
+    <p><code>toupper(c)</code> and <code>tolower(c)</code> return the converted character, or <code>c</code> unchanged if it isn't a letter.</p>
+    <script type="text/c">
+        #include <ctype.h>
+        #include <stdio.h>
+
+        int main(void) {
+            char text[] = "Room 101, floor 3";
+            int digits = 0;
+
+            for (int i = 0; text[i] != '\0'; i++) {
+                if (isdigit((unsigned char)text[i])) {
+                    digits++;
+                }
+                text[i] = (char)toupper((unsigned char)text[i]);
+            }
+            printf("%s\n", text);
+            printf("%d digits\n", digits);
+            return 0;
+        }
+    </script>
+    <div class="callout tip">
+        <span class="callout-title">Why <code>(unsigned char)</code>?</span>
+        <p>The <code>ctype</code> functions take an <code>int</code> that must be either <code>EOF</code> or a value representable as an <code>unsigned char</code>. On many systems <code>char</code> is signed, so a non-ASCII character such as <code>é</code> can be negative, and passing that is undefined behaviour. The cast makes your code correct for any input. For plain ASCII text it makes no difference.</p>
+    </div>
+
+    <h2>Buffer overflows</h2>
+    <p>Every string function that writes (<code>strcpy</code>, <code>strcat</code>, <code>scanf("%s")</code>, your own loops) trusts you to have made the destination big enough. If you haven't, it writes straight past the end of the array:</p>
+    <script type="text/c" data-static>
+        char name[8];
+        strcpy(name, "Bartholomew");    // 12 bytes into an 8-byte array!
+
+        char path[16] = "/home/";
+        strcat(path, "a_long_username");  // 6 + 15 + 1 = 22 bytes needed
+    </script>
+    <div class="callout danger">
+        <span class="callout-title">Buffer overflow: undefined behaviour and a classic security hole</span>
+        <p>Writing past the end of a char array is out-of-bounds access, so it's undefined behaviour. The extra bytes land on whatever is next in memory: other variables, or the bookkeeping the program uses to return from the current function. Attackers have exploited exactly this for decades, carefully crafting over-long input to take control of programs. The defences are simple: know your buffer sizes, count the <code>'\0'</code>, prefer <code>snprintf</code> and <code>fgets</code>, which take the size, and give <code>scanf</code> a width (<code>%19s</code> for a 20-byte array).</p>
+    </div>
+
+    <h2>Common mistakes</h2>
+    <ul>
+        <li><strong>Forgetting the extra byte:</strong> a 5-letter word needs <code>char w[6]</code>.</li>
+        <li><strong>Comparing with <code>==</code>:</strong> use <code>strcmp(a, b) == 0</code>.</li>
+        <li><strong>Assigning with <code>=</code>:</strong> <code>s = "new";</code> doesn't compile for an array; use <code>strcpy</code> or <code>snprintf</code>.</li>
+        <li><strong>Mixing <code>'x'</code> and <code>"x"</code>:</strong> one char versus a two-byte string.</li>
+        <li><strong>Forgetting <code>fgets</code> keeps the newline</strong>, so <code>strcmp(input, "yes")</code> fails because the input is <code>"yes\n"</code>.</li>
+        <li><strong>Calling <code>strlen</code> in a loop condition</strong>, as in <code>i &lt; strlen(s)</code>. It's correct but rescans the string every iteration; store the length once, or loop until <code>s[i] == '\0'</code>.</li>
+    </ul>
+
+    <div class="exercise" data-id="strings-count-vowels">
+        <h3>Count the vowels</h3>
+        <p>Write <code>int count_vowels(const char s[])</code> that returns how many vowels (a, e, i, o, u) a string contains, counting <strong>both upper- and lowercase</strong>. Walk the string until <code>'\0'</code>.</p>
+        <script type="text/c" class="starter">
+            #include <ctype.h>
+            #include <stdio.h>
+
+            int count_vowels(const char s[]) {
+                // TODO
+                return 0;
+            }
+
+            int main(void) {
+                printf("%d\n", count_vowels("Programming in C"));
+                printf("%d\n", count_vowels("AEIOU and sometimes y"));
+                printf("%d\n", count_vowels("rhythm"));
+                printf("%d\n", count_vowels(""));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            4
+            10
+            0
+            0
+        </script>
+        <script type="text/c" class="solution">
+            #include <ctype.h>
+            #include <stdio.h>
+
+            int count_vowels(const char s[]) {
+                int count = 0;
+                for (int i = 0; s[i] != '\0'; i++) {
+                    int c = tolower((unsigned char)s[i]);
+                    if (c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u') {
+                        count++;
+                    }
+                }
+                return count;
+            }
+
+            int main(void) {
+                printf("%d\n", count_vowels("Programming in C"));
+                printf("%d\n", count_vowels("AEIOU and sometimes y"));
+                printf("%d\n", count_vowels("rhythm"));
+                printf("%d\n", count_vowels(""));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Loop with <code>for (int i = 0; s[i] != '\0'; i++)</code>. Convert each character with <code>tolower</code> first, so you only have to check five lowercase letters. A <code>switch</code> with five <code>case</code>s also works nicely.</p></details>
+    </div>
+
+    <div class="exercise" data-id="strings-my-strlen">
+        <h3>Write your own <code>strlen</code></h3>
+        <p>Implement <code>int my_strlen(const char s[])</code> without using <code>&lt;string.h&gt;</code>. It should return the number of characters before the terminator.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int my_strlen(const char s[]) {
+                // TODO
+                return 0;
+            }
+
+            int main(void) {
+                char buf[32] = "hello world";
+                printf("%d\n", my_strlen(""));
+                printf("%d\n", my_strlen("a"));
+                printf("%d\n", my_strlen(buf));
+                buf[5] = '\0';
+                printf("%d\n", my_strlen(buf));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            0
+            1
+            11
+            5
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int my_strlen(const char s[]) {
+                int n = 0;
+                while (s[n] != '\0') {
+                    n++;
+                }
+                return n;
+            }
+
+            int main(void) {
+                char buf[32] = "hello world";
+                printf("%d\n", my_strlen(""));
+                printf("%d\n", my_strlen("a"));
+                printf("%d\n", my_strlen(buf));
+                buf[5] = '\0';
+                printf("%d\n", my_strlen(buf));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Start a counter at 0 and keep incrementing it while <code>s[counter]</code> isn't <code>'\0'</code>. When the loop stops, the counter is the index of the terminator, which is exactly the length. Note the last test: the array is 32 bytes, but the string is whatever comes before the first <code>'\0'</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="strings-reverse-line" data-stdin="stressed">
+        <h3>Reverse a line</h3>
+        <p>Read one line from standard input with <code>fgets</code>, strip the trailing newline, reverse the string <strong>in place</strong>, and print it followed by a newline. With the input <code>stressed</code> it should print <code>desserts</code>. Try other inputs too.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <string.h>
+
+            int main(void) {
+                char line[100];
+                if (fgets(line, sizeof line, stdin) == NULL) {
+                    return 1;
+                }
+
+                // TODO: strip the newline
+                // TODO: reverse line in place
+                // TODO: print it
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            desserts
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <string.h>
+
+            int main(void) {
+                char line[100];
+                if (fgets(line, sizeof line, stdin) == NULL) {
+                    return 1;
+                }
+
+                size_t len = strlen(line);
+                if (len > 0 && line[len - 1] == '\n') {
+                    line[len - 1] = '\0';
+                    len--;
+                }
+
+                for (size_t i = 0; i < len / 2; i++) {
+                    char tmp = line[i];
+                    line[i] = line[len - 1 - i];
+                    line[len - 1 - i] = tmp;
+                }
+
+                printf("%s\n", line);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Get the length with <code>strlen</code>. If the last character is <code>'\n'</code>, replace it with <code>'\0'</code> and reduce the length by one (otherwise the newline gets reversed to the front). Then swap <code>line[i]</code> with <code>line[len - 1 - i]</code> for <code>i</code> from 0 up to <code>len / 2</code>, exactly like reversing an int array.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "How many bytes does the string literal <code>\"cat\"</code> occupy?",
+        "choices": ["3", "4", "1", "It depends on the compiler"],
+        "answer": 1, "explain": "Three letters plus the <code>'\\0'</code> terminator the compiler adds to every string literal." },
+      { "q": "What does this print?", "type": "output",
+        "code": "char s[] = \"hello\";\nprintf(\"%zu %zu\", sizeof s, strlen(s));",
+        "answer": "6 5", "explain": "<code>sizeof</code> measures the array, including the terminator (6 bytes). <code>strlen</code> counts the characters before it (5)." },
+      { "q": "What does this print?", "type": "output",
+        "code": "char s[10] = \"abcdef\";\ns[3] = '\\0';\nprintf(\"%s\", s);",
+        "answer": "abc", "explain": "<code>%s</code> stops at the first <code>'\\0'</code>, which is now at index 3. The <code>def</code> is still in memory, just no longer part of the string." },
+      { "q": "Which correctly tests whether two strings <code>a</code> and <code>b</code> have the same contents?",
+        "choices": ["<code>a == b</code>", "<code>strcmp(a, b)</code>", "<code>strcmp(a, b) == 0</code>", "<code>strlen(a) == strlen(b)</code>"],
+        "answer": 2, "explain": "<code>strcmp</code> returns 0 for equal strings. <code>a == b</code> compares where the arrays are, and plain <code>if (strcmp(a, b))</code> is true when they <em>differ</em>." },
+      { "q": "What does <code>strcmp(\"apple\", \"banana\")</code> return?",
+        "choices": ["Exactly -1", "0", "Some positive number", "Some negative number"],
+        "answer": 3, "explain": "<code>'a'</code> is less than <code>'b'</code>, so the result is negative. The standard only guarantees the sign, not the exact value." },
+      { "q": "What is wrong with <code>char word[5]; strcpy(word, \"hello\");</code>?",
+        "choices": ["Nothing; \"hello\" has 5 letters", "<code>strcpy</code> writes 6 bytes (including <code>'\\0'</code>) into a 5-byte array: a buffer overflow", "<code>strcpy</code> can't copy string literals", "<code>word</code> must be declared <code>const</code>"],
+        "answer": 1, "explain": "The copy includes the terminator, so it needs <code>char word[6]</code>. The extra byte overwrites memory past the array, which is undefined behaviour." },
+      { "q": "What does this print?", "type": "output",
+        "code": "char s[] = \"c99 rocks\";\nfor (int i = 0; s[i] != '\\0'; i++) {\n    if (isalpha((unsigned char)s[i])) {\n        s[i] = toupper((unsigned char)s[i]);\n    }\n}\nprintf(\"%s\", s);",
+        "answer": "C99 ROCKS", "explain": "Letters are converted to uppercase; the digits and the space aren't letters, so they're left alone." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

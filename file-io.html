@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File I/O · Learn C</title>
+    <meta name="description" content="Reading and writing files in C: FILE *, fopen modes, fprintf, fgets, fgetc and EOF, fscanf, stderr, binary fread/fwrite, fseek and ftell.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>File I/O</h1>
+    <p class="lead">Everything your programs have done so far vanishes when they exit. Files let a program keep data between runs, read input that's far too big to type, and produce output other programs can use. In C, all of it goes through one small set of functions in <code>&lt;stdio.h&gt;</code>, built around a pointer type called <code>FILE *</code>.</p>
+
+    <div class="callout tip">
+        <span class="callout-title">About the examples on this page</span>
+        <p>The runnable examples execute in a temporary sandbox that has no files of yours in it. So each one first <strong>writes</strong> a small file (like <code>notes.txt</code>) and then reads it back in the same program. Snippets that assume a file already exists are shown read-only.</p>
+    </div>
+
+    <h2>Streams and <code>FILE *</code></h2>
+    <p>C doesn't talk to files directly. It talks to <strong>streams</strong>: a source or destination of bytes, which might be a file on disk, the terminal, or a pipe from another program. A stream is represented by a <code>FILE</code> object that the library manages for you. It holds a buffer, your current position in the file, and flags recording whether you've hit end-of-file or an error.</p>
+    <p>You never create a <code>FILE</code> yourself or look inside one. You get a <code>FILE *</code> from <code>fopen</code>, pass it to the reading and writing functions, and hand it back with <code>fclose</code>. The pattern is always the same:</p>
+    <script type="text/c" data-static>
+        FILE *f = fopen("data.txt", "r");   // 1. open (may fail!)
+        if (f == NULL) {
+            perror("data.txt");             // 2. say why, and stop
+            return 1;
+        }
+        /* ... read from f ... */           // 3. use it
+        fclose(f);                          // 4. close it
+    </script>
+
+    <h2>Opening a file: <code>fopen</code> and modes</h2>
+    <p><code>FILE *fopen(const char *path, const char *mode);</code> takes a file name (relative to the program's current directory, or an absolute path) and a <strong>mode</strong> string saying what you intend to do:</p>
+    <table>
+        <thead><tr><th>Mode</th><th>Meaning</th><th>If the file exists</th><th>If it doesn't</th></tr></thead>
+        <tbody>
+            <tr><td><code>"r"</code></td><td>read</td><td>read from the start</td><td>fails (returns <code>NULL</code>)</td></tr>
+            <tr><td><code>"w"</code></td><td>write</td><td><strong>erases it</strong> (truncates to 0 bytes)</td><td>creates it</td></tr>
+            <tr><td><code>"a"</code></td><td>append</td><td>every write goes to the end</td><td>creates it</td></tr>
+            <tr><td><code>"r+"</code></td><td>read and write</td><td>starts at the beginning, keeps contents</td><td>fails</td></tr>
+            <tr><td><code>"w+"</code></td><td>read and write</td><td><strong>erases it</strong></td><td>creates it</td></tr>
+            <tr><td><code>"a+"</code></td><td>read and append</td><td>reads anywhere, writes go to the end</td><td>creates it</td></tr>
+        </tbody>
+    </table>
+    <p>Add a <code>b</code> (<code>"rb"</code>, <code>"wb"</code>, <code>"r+b"</code>...) to open in <strong>binary</strong> mode. On Linux and macOS text and binary mode behave identically. On Windows, text mode translates <code>"\r\n"</code> line endings to <code>'\n'</code> and back, which would corrupt non-text data. Rule of thumb: use <code>b</code> whenever the file isn't human-readable text. Since C11 you can also add <code>x</code> to a write mode (<code>"wx"</code>) to fail instead of overwriting an existing file.</p>
+    <div class="callout danger">
+        <span class="callout-title"><code>"w"</code> destroys the file immediately</span>
+        <p>Opening with <code>"w"</code> truncates the file to zero length the moment <code>fopen</code> succeeds, before you've written anything. Opening your input file with <code>"w"</code> by mistake is a classic way to lose data. If you want to add to a file, use <code>"a"</code>.</p>
+    </div>
+
+    <h3>Always check for <code>NULL</code></h3>
+    <p><code>fopen</code> fails more often than you'd think: the file doesn't exist, the name has a typo, you lack permission, the directory doesn't exist. When it fails it returns <code>NULL</code> and sets <code>errno</code> to a code describing why. <code>perror</code> (from <code>&lt;stdio.h&gt;</code>) prints your message followed by a readable description of that code:</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stdlib.h>
+
+        int main(void) {
+            FILE *f = fopen("no-such-file.txt", "r");
+            if (f == NULL) {
+                perror("could not open no-such-file.txt");
+                return EXIT_FAILURE;
+            }
+            fclose(f);
+            return EXIT_SUCCESS;
+        }
+    </script>
+    <p>That prints something like <code>could not open no-such-file.txt: No such file or directory</code> to the error stream. Passing a <code>NULL</code> <code>FILE *</code> to any other stdio function is undefined behaviour, usually a crash, so this check is not optional.</p>
+
+    <h2>Writing text: <code>fprintf</code>, <code>fputs</code>, <code>fputc</code></h2>
+    <p>The writing functions are the ones you know, with an <code>f</code> in front and a <code>FILE *</code> argument:</p>
+    <table>
+        <thead><tr><th>Function</th><th>Writes</th><th>Returns on error</th></tr></thead>
+        <tbody>
+            <tr><td><code>fprintf(f, "x=%d\n", x)</code></td><td>formatted text, exactly like <code>printf</code></td><td>a negative number</td></tr>
+            <tr><td><code>fputs("hello\n", f)</code></td><td>a string, <em>without</em> adding a newline (unlike <code>puts</code>)</td><td><code>EOF</code></td></tr>
+            <tr><td><code>fputc('A', f)</code></td><td>one character</td><td><code>EOF</code></td></tr>
+        </tbody>
+    </table>
+    <p>Notice that <code>fputs</code> and <code>fputc</code> take the stream <em>last</em>, while <code>fprintf</code> takes it first. Here is a complete round trip: write a file, close it, open it again for reading, and print what's in it.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            // --- write ---
+            FILE *out = fopen("notes.txt", "w");
+            if (out == NULL) {
+                perror("notes.txt");
+                return 1;
+            }
+            fprintf(out, "Shopping list (%d items)\n", 3);
+            fputs("eggs\n", out);
+            fputs("flour\n", out);
+            fputc('m', out);
+            fputc('i', out);
+            fputs("lk\n", out);
+            fclose(out);                     // flushes everything to disk
+
+            // --- read it back ---
+            FILE *in = fopen("notes.txt", "r");
+            if (in == NULL) {
+                perror("notes.txt");
+                return 1;
+            }
+            char line[100];
+            while (fgets(line, sizeof line, in) != NULL) {
+                printf("read: %s", line);    // line already ends in '\n'
+            }
+            fclose(in);
+            return 0;
+        }
+    </script>
+
+    <h3>Why <code>fclose</code> matters</h3>
+    <p>Writes are <strong>buffered</strong>: <code>fputs</code> usually copies your bytes into the <code>FILE</code>'s memory buffer, and the library only hands them to the operating system when the buffer fills up, when you call <code>fflush(f)</code>, or when you call <code>fclose(f)</code>. That's much faster than a system call per character, but it means:</p>
+    <ul>
+        <li>If you forget to close a file you wrote, the last chunk may never reach the disk if the program crashes or calls <code>abort</code>. (A normal <code>return</code> from <code>main</code> or <code>exit</code> does flush open streams, but relying on that is sloppy.)</li>
+        <li>An error such as a full disk might only be discovered when the buffer is flushed, so <code>fclose</code> returns <code>EOF</code> on failure. In programs where the output matters, check it.</li>
+        <li>Each open file uses an operating-system resource, and there's a limit on how many you can have open at once. Close files as soon as you're done.</li>
+    </ul>
+    <p>After <code>fclose(f)</code>, the pointer <code>f</code> is dangling, just like after <code>free</code>. Don't use it again.</p>
+
+    <h2>Reading lines: <code>fgets</code></h2>
+    <p><code>char *fgets(char *buf, int size, FILE *f)</code> is the workhorse for reading text. It reads characters into <code>buf</code> until one of three things happens:</p>
+    <ol>
+        <li>it has read a newline (which it <strong>keeps</strong> in the buffer),</li>
+        <li>it has read <code>size - 1</code> characters (leaving room for the <code>'\0'</code>), or</li>
+        <li>it hits end-of-file.</li>
+    </ol>
+    <p>It always null-terminates the result, and returns <code>buf</code> on success or <code>NULL</code> if it couldn't read anything (end of file, or an error). That return value is what you loop on. Because of rule 2, a line longer than the buffer comes back in several pieces, and only the last piece ends with <code>'\n'</code>. Use a generous buffer, and if you need the line without its newline, chop it off with <code>strcspn</code>:</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <string.h>
+
+        int main(void) {
+            FILE *f = fopen("todo.txt", "w");
+            if (f == NULL) { perror("todo.txt"); return 1; }
+            fputs("water the plants\nwrite the report\ncall Sam\n", f);
+            fclose(f);
+
+            f = fopen("todo.txt", "r");
+            if (f == NULL) { perror("todo.txt"); return 1; }
+
+            char line[256];
+            int number = 0;
+            while (fgets(line, sizeof line, f) != NULL) {
+                line[strcspn(line, "\n")] = '\0';   // strip the newline, if any
+                number++;
+                printf("%d. [%s] (%zu chars)\n", number, line, strlen(line));
+            }
+            fclose(f);
+            return 0;
+        }
+    </script>
+    <p><code>strcspn(line, "\n")</code> returns the index of the first <code>'\n'</code>, or the string's length if there isn't one, so the assignment is safe either way.</p>
+
+    <h2>Reading characters: <code>fgetc</code> and <code>EOF</code></h2>
+    <p><code>int fgetc(FILE *f)</code> reads one character. Look carefully at the return type: it's <code>int</code>, not <code>char</code>. On success, <code>fgetc</code> returns the byte as an <code>unsigned char</code> value (0 to 255) converted to <code>int</code>. On end-of-file or error, it returns the macro <code>EOF</code>, a negative <code>int</code> (almost always -1) that can't be confused with any real byte. This is the idiomatic loop:</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <ctype.h>
+
+        int main(void) {
+            FILE *f = fopen("poem.txt", "w");
+            if (f == NULL) { perror("poem.txt"); return 1; }
+            fputs("Roses are red,\nViolets are blue,\nC has pointers\nand so can you.\n", f);
+            fclose(f);
+
+            f = fopen("poem.txt", "r");
+            if (f == NULL) { perror("poem.txt"); return 1; }
+
+            int c;                              // int, not char!
+            long chars = 0, lines = 0, upper = 0;
+            while ((c = fgetc(f)) != EOF) {
+                chars++;
+                if (c == '\n') lines++;
+                if (isupper(c)) upper++;
+            }
+            fclose(f);
+
+            printf("%ld characters, %ld lines, %ld capitals\n", chars, lines, upper);
+            return 0;
+        }
+    </script>
+    <p>Read <code>(c = fgetc(f)) != EOF</code> from the inside out: call <code>fgetc</code>, store the result in <code>c</code>, then compare that stored value to <code>EOF</code>. The extra parentheses are required because <code>!=</code> binds tighter than <code>=</code>. Without them you'd store the <em>comparison result</em> (0 or 1) in <code>c</code>.</p>
+    <div class="callout danger">
+        <span class="callout-title">Why <code>char c</code> breaks the loop</span>
+        <p><code>fgetc</code> can return 257 different values: the 256 possible bytes plus <code>EOF</code>. A <code>char</code> only holds 256, so something has to give. If <code>char</code> is unsigned on your platform (it is on many ARM systems), <code>c</code> can never equal -1 and the loop never ends. If <code>char</code> is signed, a perfectly valid byte <code>0xFF</code> becomes -1 and is mistaken for end-of-file, cutting the read short. Always store the result in an <code>int</code>.</p>
+    </div>
+
+    <h3>Why <code>while (!feof(f))</code> is wrong</h3>
+    <p>It looks natural to write "while not at the end of the file, read a line". But <code>feof(f)</code> doesn't look ahead. It only reports that a <em>previous</em> read has already tried to go past the end and failed. So the loop always runs one extra time, and that last read fails. Watch the last line get printed twice:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            FILE *f = fopen("lines.txt", "w");
+            if (f == NULL) { perror("lines.txt"); return 1; }
+            fputs("first\nsecond\nlast\n", f);
+            fclose(f);
+
+            f = fopen("lines.txt", "r");
+            if (f == NULL) { perror("lines.txt"); return 1; }
+
+            char buf[64];
+            int count = 0;
+            while (!feof(f)) {               // WRONG: asks the wrong question
+                fgets(buf, sizeof buf, f);   // the 4th call fails, buf is unchanged...
+                count++;
+                printf("%d: %s", count, buf); // ...so "last" is printed again
+            }
+            fclose(f);
+            return 0;
+        }
+    </script>
+    <p>After reading <code>"last\n"</code>, <code>fgets</code> stopped at the newline and never touched the end of the file, so <code>feof</code> is still false. The fourth <code>fgets</code> finds nothing, returns <code>NULL</code> and sets the end-of-file flag, but the loop body has already started and prints the stale buffer. With <code>fgetc</code> the same mistake would process <code>EOF</code> as if it were a character.</p>
+    <p>The fix is the pattern you've already seen: <strong>make the read itself the loop condition</strong>, and check its return value. Then use <code>feof</code> and <code>ferror</code> <em>after</em> the loop, for what they're actually for: finding out <em>why</em> reading stopped.</p>
+    <script type="text/c" data-static>
+        while (fgets(buf, sizeof buf, f) != NULL) {
+            /* process buf */
+        }
+        if (ferror(f)) {
+            perror("read error");    // stopped because of an I/O error
+        }
+        // otherwise we stopped because we reached the end: feof(f) is true
+    </script>
+
+    <h2>Reading formatted data: <code>fscanf</code></h2>
+    <p><code>fscanf</code> is <code>scanf</code> for any stream. Its return value is the number of items it successfully converted (or <code>EOF</code> if input ended before the first one), so you loop for as long as you get everything you asked for:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            FILE *f = fopen("scores.txt", "w");
+            if (f == NULL) { perror("scores.txt"); return 1; }
+            fprintf(f, "alice 91\nbob 78\ncarol 85\n");
+            fclose(f);
+
+            f = fopen("scores.txt", "r");
+            if (f == NULL) { perror("scores.txt"); return 1; }
+
+            char name[32];
+            int score, total = 0, count = 0;
+            while (fscanf(f, "%31s %d", name, &score) == 2) {
+                printf("%-6s %3d\n", name, score);
+                total += score;
+                count++;
+            }
+            fclose(f);
+
+            if (count > 0) {
+                printf("average: %.1f\n", (double)total / count);
+            }
+            return 0;
+        }
+    </script>
+    <p>Two habits make <code>fscanf</code> safe:</p>
+    <ul>
+        <li><strong>Compare against the exact count you expect</strong> (<code>== 2</code> here), not just "not <code>EOF</code>". If a line contained <code>dave abc</code>, <code>fscanf</code> would return 1, and you'd want to stop rather than use a garbage <code>score</code>.</li>
+        <li><strong>Always give <code>%s</code> a width</strong>: <code>%31s</code> for a 32-byte buffer, leaving room for the <code>'\0'</code>. A bare <code>%s</code> will write past the end of your array if the file contains a long word.</li>
+    </ul>
+    <p>For messy or untrusted input, a sturdier approach is to read whole lines with <code>fgets</code> and then pick them apart with <code>sscanf</code> (scan from a string) or <code>strtol</code>. A malformed line then can't knock the rest of the file out of step.</p>
+
+    <h2><code>stdin</code>, <code>stdout</code> and <code>stderr</code> are <code>FILE *</code>s too</h2>
+    <p>Every C program starts with three streams already open, declared in <code>&lt;stdio.h&gt;</code>:</p>
+    <table>
+        <thead><tr><th>Stream</th><th>Normally connected to</th><th>Used by</th></tr></thead>
+        <tbody>
+            <tr><td><code>stdin</code></td><td>the keyboard (or piped input)</td><td><code>scanf</code>, <code>getchar</code></td></tr>
+            <tr><td><code>stdout</code></td><td>the terminal</td><td><code>printf</code>, <code>puts</code>, <code>putchar</code></td></tr>
+            <tr><td><code>stderr</code></td><td>the terminal</td><td><code>perror</code>, and your error messages</td></tr>
+        </tbody>
+    </table>
+    <p>So <code>printf(...)</code> is just <code>fprintf(stdout, ...)</code>, and <code>fgets(buf, sizeof buf, stdin)</code> reads a line typed by the user. That means any function you write that takes a <code>FILE *</code> works on files <em>and</em> on the terminal:</p>
+    <script type="text/c" data-stdin="Ada\nGrace\nLinus">
+        #include <stdio.h>
+        #include <string.h>
+
+        // Works with any stream: a file, stdout, stderr...
+        void greet(FILE *out, const char *name) {
+            fprintf(out, "Hello, %s!\n", name);
+        }
+
+        int main(void) {
+            char name[64];
+            while (fgets(name, sizeof name, stdin) != NULL) {
+                name[strcspn(name, "\n")] = '\0';
+                if (name[0] == '\0') {
+                    fprintf(stderr, "warning: skipping empty line\n");
+                    continue;
+                }
+                greet(stdout, name);
+            }
+            return 0;
+        }
+    </script>
+    <h3>Why errors go to <code>stderr</code></h3>
+    <p>Both <code>stdout</code> and <code>stderr</code> show up in your terminal, so why have two? Because the shell can redirect them separately. When someone saves your program's output to a file, they still want to <em>see</em> the error messages, and they definitely don't want them mixed into the data:</p>
+    <pre class="terminal">./report &gt; report.txt 2&gt; errors.txt</pre>
+    <p>Here <code>&gt;</code> sends <code>stdout</code> to <code>report.txt</code> and <code>2&gt;</code> sends <code>stderr</code> (stream number 2) to <code>errors.txt</code>. There's also a buffering difference: <code>stdout</code> is usually line-buffered on a terminal (and fully buffered when redirected), while <code>stderr</code> is unbuffered, so an error message appears immediately even if the program crashes a moment later. Pair error messages with a non-zero exit status, such as <code>return EXIT_FAILURE;</code>, so scripts can tell that something went wrong.</p>
+
+    <h2>Binary files: <code>fwrite</code> and <code>fread</code></h2>
+    <p>Text files are great for humans, but converting numbers to text and back is slow and loses precision unless you're careful. For data only your program will read, you can write the raw bytes of your variables directly:</p>
+    <script type="text/c" data-static>
+        size_t fwrite(const void *ptr, size_t size, size_t count, FILE *f);
+        size_t fread(void *ptr, size_t size, size_t count, FILE *f);
+    </script>
+    <p>Both take a <code>void *</code> (they don't care what type your data is, just like <code>memcpy</code>), the size of one element, and how many elements. They return how many <strong>whole elements</strong> were transferred, which is less than <code>count</code> on error or end of file. Here's an array of structs saved and loaded in one call each:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        struct Item {
+            int id;
+            double price;
+            char name[16];
+        };
+
+        int main(void) {
+            struct Item stock[] = {
+                { 1, 2.50, "apple" },
+                { 2, 0.99, "banana" },
+                { 3, 7.25, "cheese" },
+            };
+            size_t n = sizeof stock / sizeof stock[0];
+
+            FILE *f = fopen("stock.bin", "wb");          // note the b
+            if (f == NULL) { perror("stock.bin"); return 1; }
+            size_t written = fwrite(stock, sizeof stock[0], n, f);
+            fclose(f);
+            printf("wrote %zu items (%zu bytes)\n", written, written * sizeof stock[0]);
+
+            struct Item loaded[10];
+            f = fopen("stock.bin", "rb");
+            if (f == NULL) { perror("stock.bin"); return 1; }
+            size_t got = fread(loaded, sizeof loaded[0], 10, f);   // asks for up to 10
+            fclose(f);
+
+            printf("read %zu items\n", got);
+            for (size_t i = 0; i < got; i++) {
+                printf("#%d %-7s %5.2f\n", loaded[i].id, loaded[i].name, loaded[i].price);
+            }
+            return 0;
+        }
+    </script>
+    <p>We asked <code>fread</code> for up to 10 items, but the file only held 3, so it returned 3. Always use the returned count, not the count you asked for.</p>
+    <div class="callout warn">
+        <span class="callout-title">Binary files aren't portable</span>
+        <p>The bytes you write are exactly how <em>this</em> compiler on <em>this</em> machine lays out the struct: its padding, the size of <code>int</code>, and the byte order (endianness). A file written on one system may be garbage when read on another. And never <code>fwrite</code> a struct that contains pointers: the file would store addresses, which mean nothing the next time the program runs. For data that must travel, use text (like CSV or JSON) or write each field in a defined byte order.</p>
+    </div>
+
+    <h2>Moving around: <code>fseek</code>, <code>ftell</code>, <code>rewind</code></h2>
+    <p>Every open stream has a <strong>file position</strong>: where the next read or write happens. Reading and writing advance it automatically, but you can also move it yourself:</p>
+    <table>
+        <thead><tr><th>Call</th><th>Effect</th></tr></thead>
+        <tbody>
+            <tr><td><code>fseek(f, offset, SEEK_SET)</code></td><td>move to <code>offset</code> bytes from the start</td></tr>
+            <tr><td><code>fseek(f, offset, SEEK_CUR)</code></td><td>move <code>offset</code> bytes from the current position (may be negative)</td></tr>
+            <tr><td><code>fseek(f, offset, SEEK_END)</code></td><td>move relative to the end of the file</td></tr>
+            <tr><td><code>ftell(f)</code></td><td>return the current position as a <code>long</code> (or -1 on error)</td></tr>
+            <tr><td><code>rewind(f)</code></td><td>go back to the start and clear the error/EOF flags</td></tr>
+        </tbody>
+    </table>
+    <p><code>fseek</code> returns 0 on success. Two classic uses: finding a file's size (seek to the end and ask where you are), and jumping straight to record number <code>i</code> in a binary file of fixed-size records:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        struct Point { int x, y; };
+
+        int main(void) {
+            // A binary file holding 5 points: (0,0), (1,10), (2,20), ...
+            FILE *f = fopen("points.bin", "w+b");      // read and write, binary
+            if (f == NULL) { perror("points.bin"); return 1; }
+            for (int i = 0; i < 5; i++) {
+                struct Point p = { i, i * 10 };
+                fwrite(&p, sizeof p, 1, f);
+            }
+
+            // How big is the file?
+            fseek(f, 0, SEEK_END);
+            long size = ftell(f);
+            printf("file is %ld bytes = %ld points\n", size, size / (long)sizeof(struct Point));
+
+            // Jump straight to record 3 without reading 0, 1 and 2.
+            fseek(f, 3 * (long)sizeof(struct Point), SEEK_SET);
+            struct Point p;
+            if (fread(&p, sizeof p, 1, f) == 1) {
+                printf("record 3 is (%d, %d)\n", p.x, p.y);
+            }
+
+            rewind(f);
+            if (fread(&p, sizeof p, 1, f) == 1) {
+                printf("record 0 is (%d, %d)\n", p.x, p.y);
+            }
+            fclose(f);
+            remove("points.bin");                      // delete the file when done
+            return 0;
+        }
+    </script>
+    <p>A few fine points. When a stream is open for both reading and writing, you must call <code>fseek</code>, <code>rewind</code> or <code>fflush</code> between a write and a following read, which is why the example seeks before its first <code>fread</code>. In text mode, <code>ftell</code>'s value is only guaranteed to be something you can pass back to <code>fseek</code>, not necessarily a byte count (Windows line-ending translation is the reason), so measure sizes in binary mode. And <code>remove(path)</code>, also from <code>&lt;stdio.h&gt;</code>, deletes a file.</p>
+
+    <h2>A checklist for robust file code</h2>
+    <ul>
+        <li>Check every <code>fopen</code> for <code>NULL</code>, and report the reason with <code>perror</code> (to <code>stderr</code>).</li>
+        <li>Use the read function's return value as the loop condition: <code>fgets(...) != NULL</code>, <code>(c = fgetc(f)) != EOF</code>, <code>fscanf(...) == expected</code>, <code>fread(...) == count</code>.</li>
+        <li>Store <code>fgetc</code>'s result in an <code>int</code>.</li>
+        <li>Give every <code>%s</code> a width, and size buffers with <code>sizeof buf</code>.</li>
+        <li>Use <code>"rb"</code>/<code>"wb"</code> for non-text data.</li>
+        <li>Close every file you open, exactly once, and don't touch the <code>FILE *</code> afterwards.</li>
+    </ul>
+
+    <h2>Exercises</h2>
+
+    <div class="exercise" data-id="fileio-sum-numbers">
+        <h3>Write numbers, then sum them</h3>
+        <p>Write the numbers 1 to 5 into <code>numbers.txt</code>, one per line. Close the file, open it again for reading, read the numbers back with <code>fscanf</code>, and print <code>sum = 15</code>. Check both <code>fopen</code> calls.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                // 1. open numbers.txt for writing, check for NULL
+                // 2. write 1..5, one per line, then close
+
+                // 3. open numbers.txt for reading, check for NULL
+                // 4. read ints with fscanf until it stops returning 1, adding them up
+                // 5. close the file
+
+                int sum = 0;
+                printf("sum = %d\n", sum);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            sum = 15
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                FILE *f = fopen("numbers.txt", "w");
+                if (f == NULL) {
+                    perror("numbers.txt");
+                    return 1;
+                }
+                for (int i = 1; i <= 5; i++) {
+                    fprintf(f, "%d\n", i);
+                }
+                fclose(f);
+
+                f = fopen("numbers.txt", "r");
+                if (f == NULL) {
+                    perror("numbers.txt");
+                    return 1;
+                }
+                int sum = 0, n;
+                while (fscanf(f, "%d", &n) == 1) {
+                    sum += n;
+                }
+                fclose(f);
+
+                printf("sum = %d\n", sum);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Write with <code>fprintf(f, "%d\n", i);</code> in a loop. To read, <code>while (fscanf(f, "%d", &amp;n) == 1) sum += n;</code>. <code>%d</code> skips the newlines for you.</p></details>
+    </div>
+
+    <div class="exercise" data-id="fileio-word-count">
+        <h3>Count lines, words and characters</h3>
+        <p>The starter writes a short text to <code>text.txt</code>. Read it back <strong>one character at a time</strong> with <code>fgetc</code> and count the lines (newline characters), words (runs of non-whitespace characters) and characters, then print them in the format <code>lines=L words=W chars=C</code>.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+            #include <ctype.h>
+
+            int main(void) {
+                FILE *f = fopen("text.txt", "w");
+                if (f == NULL) { perror("text.txt"); return 1; }
+                fputs("the quick brown fox\njumps   over\nthe lazy dog\n", f);
+                fclose(f);
+
+                long lines = 0, words = 0, chars = 0;
+
+                // TODO: reopen text.txt for reading and count with fgetc.
+                // A word starts when you see a non-space character
+                // right after a space (or at the very beginning).
+
+                printf("lines=%ld words=%ld chars=%ld\n", lines, words, chars);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            lines=3 words=9 chars=46
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+            #include <ctype.h>
+
+            int main(void) {
+                FILE *f = fopen("text.txt", "w");
+                if (f == NULL) { perror("text.txt"); return 1; }
+                fputs("the quick brown fox\njumps   over\nthe lazy dog\n", f);
+                fclose(f);
+
+                long lines = 0, words = 0, chars = 0;
+
+                f = fopen("text.txt", "r");
+                if (f == NULL) { perror("text.txt"); return 1; }
+
+                int c;
+                int in_word = 0;
+                while ((c = fgetc(f)) != EOF) {
+                    chars++;
+                    if (c == '\n') {
+                        lines++;
+                    }
+                    if (isspace(c)) {
+                        in_word = 0;
+                    } else if (!in_word) {
+                        in_word = 1;
+                        words++;
+                    }
+                }
+                fclose(f);
+
+                printf("lines=%ld words=%ld chars=%ld\n", lines, words, chars);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Keep a flag <code>in_word</code>. For each character: if <code>isspace(c)</code>, set <code>in_word = 0</code>; otherwise, if <code>in_word</code> was 0, you've found the start of a new word, so count it and set <code>in_word = 1</code>. Note the extra spaces in <code>"jumps   over"</code>: they must not create extra words. Remember <code>int c</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="fileio-copy">
+        <h3>Copy a file</h3>
+        <p>Write <code>long copy_file(const char *src, const char *dst)</code>, which copies <code>src</code> to <code>dst</code> byte by byte (open both in binary mode) and returns the number of bytes copied, or <code>-1</code> if either file can't be opened. Make sure it closes everything it opened, even on failure. The provided <code>main</code> creates the source, copies it, and prints the copy.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            long copy_file(const char *src, const char *dst) {
+                // TODO: open src with "rb" and dst with "wb" (check both!),
+                // copy with fgetc/fputc, close both, return the byte count.
+                return -1;
+            }
+
+            int main(void) {
+                FILE *f = fopen("original.txt", "w");
+                if (f == NULL) { perror("original.txt"); return 1; }
+                fputs("Line one\nLine two\nThe end.\n", f);
+                fclose(f);
+
+                long n = copy_file("original.txt", "copy.txt");
+                if (n < 0) {
+                    printf("copy failed\n");
+                    return 1;
+                }
+                printf("copied %ld bytes\n", n);
+
+                f = fopen("copy.txt", "r");
+                if (f == NULL) { perror("copy.txt"); return 1; }
+                int c;
+                while ((c = fgetc(f)) != EOF) {
+                    putchar(c);
+                }
+                fclose(f);
+
+                printf("missing file -> %ld\n", copy_file("does-not-exist.txt", "x.txt"));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            copied 27 bytes
+            Line one
+            Line two
+            The end.
+            missing file -> -1
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            long copy_file(const char *src, const char *dst) {
+                FILE *in = fopen(src, "rb");
+                if (in == NULL) {
+                    return -1;
+                }
+                FILE *out = fopen(dst, "wb");
+                if (out == NULL) {
+                    fclose(in);          // don't leak the first file
+                    return -1;
+                }
+
+                long count = 0;
+                int c;
+                while ((c = fgetc(in)) != EOF) {
+                    if (fputc(c, out) == EOF) {
+                        count = -1;
+                        break;
+                    }
+                    count++;
+                }
+
+                fclose(in);
+                if (fclose(out) == EOF) {
+                    count = -1;
+                }
+                return count;
+            }
+
+            int main(void) {
+                FILE *f = fopen("original.txt", "w");
+                if (f == NULL) { perror("original.txt"); return 1; }
+                fputs("Line one\nLine two\nThe end.\n", f);
+                fclose(f);
+
+                long n = copy_file("original.txt", "copy.txt");
+                if (n < 0) {
+                    printf("copy failed\n");
+                    return 1;
+                }
+                printf("copied %ld bytes\n", n);
+
+                f = fopen("copy.txt", "r");
+                if (f == NULL) { perror("copy.txt"); return 1; }
+                int c;
+                while ((c = fgetc(f)) != EOF) {
+                    putchar(c);
+                }
+                fclose(f);
+
+                printf("missing file -> %ld\n", copy_file("does-not-exist.txt", "x.txt"));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Open <code>src</code> first and return <code>-1</code> if it fails. Then open <code>dst</code>; if <em>that</em> fails, <code>fclose(in)</code> before returning. Copy with <code>while ((c = fgetc(in)) != EOF) { fputc(c, out); count++; }</code>, then close both.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "What happens when you <code>fopen(\"data.txt\", \"w\")</code> and <code>data.txt</code> already contains important data?",
+        "choices": ["New writes are added at the end", "<code>fopen</code> fails and returns <code>NULL</code>", "The file is truncated to zero length immediately", "Nothing until you call <code>fclose</code>"],
+        "answer": 2, "explain": "<code>\"w\"</code> truncates an existing file as soon as it's opened. Use <code>\"a\"</code> to append, or <code>\"wx\"</code> (C11) to fail if the file already exists." },
+      { "q": "Why must the variable in <code>while ((c = fgetc(f)) != EOF)</code> be an <code>int</code> rather than a <code>char</code>?",
+        "choices": ["<code>fgetc</code> needs 257 distinct return values: every byte plus <code>EOF</code>", "<code>char</code> variables can't be compared with <code>!=</code>", "An <code>int</code> is faster to read", "It doesn't matter; <code>char</code> works the same"],
+        "answer": 0, "explain": "A <code>char</code> holds only 256 values. Depending on whether <code>char</code> is signed, you either never see <code>EOF</code> (infinite loop) or mistake byte <code>0xFF</code> for <code>EOF</code> (early stop)." },
+      { "q": "A file contains exactly <code>a\\nb\\n</code>. What does this print?", "type": "output",
+        "code": "char buf[16];\nint n = 0;\nwhile (!feof(f)) {\n    fgets(buf, sizeof buf, f);\n    n++;\n}\nprintf(\"%d\", n);",
+        "answer": "3", "explain": "<code>feof</code> only becomes true after a read has <em>failed</em> at the end. Two reads succeed, then the third fails and sets the flag. But the loop body has already run three times. Loop on <code>fgets(...) != NULL</code> instead." },
+      { "q": "A file contains <code>10 20 x 30</code>. What does this print?", "type": "output",
+        "code": "int n, sum = 0;\nwhile (fscanf(f, \"%d\", &n) == 1) {\n    sum += n;\n}\nprintf(\"%d\", sum);",
+        "answer": "30", "explain": "<code>fscanf</code> reads 10 and 20, then fails to convert <code>x</code> and returns 0, ending the loop. The 30 is never reached. That's why checking the exact return count matters: it stops you from using a value that wasn't actually read." },
+      { "q": "Where should a program write its error messages?",
+        "choices": ["<code>stdout</code>, with <code>printf</code>", "<code>stdin</code>", "A file called <code>errors.txt</code>", "<code>stderr</code>, e.g. with <code>fprintf(stderr, ...)</code> or <code>perror</code>"],
+        "answer": 3, "explain": "<code>stderr</code> is separate from normal output, so errors stay visible (and out of the data) when <code>stdout</code> is redirected to a file. It's also unbuffered, so messages appear immediately." },
+      { "q": "What does this print?", "type": "output",
+        "code": "FILE *f = fopen(\"t.bin\", \"wb\");\nint nums[4] = {1, 2, 3, 4};\nfwrite(nums, sizeof nums[0], 4, f);\nfclose(f);\n\nf = fopen(\"t.bin\", \"rb\");\nint got[10];\nsize_t n = fread(got, sizeof got[0], 10, f);\nfclose(f);\nprintf(\"%zu %d\", n, got[n - 1]);",
+        "answer": "4 4", "explain": "<code>fread</code> asked for up to 10 ints but the file only holds 4, so it returns 4: the number of whole elements actually read. The last one read, <code>got[3]</code>, is 4." },
+      { "q": "How do you find the size in bytes of a file opened with <code>\"rb\"</code>?",
+        "choices": ["<code>sizeof(*f)</code>", "<code>fseek(f, 0, SEEK_END)</code>, then <code>ftell(f)</code>", "<code>strlen</code> on the file name", "Count the lines with <code>fgets</code>"],
+        "answer": 1, "explain": "Seeking to the end and asking for the position gives the size. <code>sizeof(*f)</code> is the size of the library's <code>FILE</code> bookkeeping struct, which has nothing to do with the file's contents." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

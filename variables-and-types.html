@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variables &amp; Types · Learn C</title>
+    <meta name="description" content="Declaring variables, C's basic types, sizeof, signed and unsigned integers, format specifiers, const, and reading input with scanf.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>Variables &amp; Types</h1>
+    <p class="lead">A variable is a named piece of memory. In C, every variable has a <strong>type</strong> that is fixed when you declare it, and the type decides how many bytes it occupies, which values it can hold, and what operations make sense on it. Getting comfortable with types is the foundation for everything else, pointers included.</p>
+
+    <h2>Declaring and initialising</h2>
+    <p>To create a variable you <strong>declare</strong> it: write the type, then the name. You can give it a starting value in the same statement, which is called <strong>initialising</strong> it:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int age = 30;          // declare and initialise
+            int year;              // declare only...
+            year = 2026;           // ...then assign later
+
+            printf("age = %d, year = %d\n", age, year);
+
+            age = age + 1;         // a variable's value can change
+            printf("next year, age = %d\n", age);
+            return 0;
+        }
+    </script>
+    <p>Notice that <code>=</code> here means <em>assignment</em> ("store this value"), not mathematical equality. <code>age = age + 1</code> reads the current value, adds one, and stores the result back.</p>
+    <p>Variable names can contain letters, digits and underscores, but can't start with a digit, and they're case-sensitive (<code>count</code> and <code>Count</code> are different variables). You also can't use C keywords like <code>int</code> or <code>return</code> as names. Prefer descriptive names: <code>total_price</code> beats <code>tp</code>.</p>
+
+    <div class="callout tip">
+        <span class="callout-title">Declare near first use</span>
+        <p>Old C code declares every variable at the top of a function, because C89 required it. Since C99 you can declare a variable anywhere in a block, and it's usually clearer to declare it right where you first need it, already initialised.</p>
+    </div>
+
+    <h2>The basic types</h2>
+    <table>
+        <thead><tr><th>Type</th><th>Holds</th><th>Typical size</th><th>Example</th></tr></thead>
+        <tbody>
+            <tr><td><code>int</code></td><td>whole numbers</td><td>4 bytes</td><td><code>int score = -12;</code></td></tr>
+            <tr><td><code>char</code></td><td>a single character (a small integer)</td><td>1 byte (always)</td><td><code>char grade = 'A';</code></td></tr>
+            <tr><td><code>float</code></td><td>floating-point numbers, ~7 significant digits</td><td>4 bytes</td><td><code>float f = 1.5f;</code></td></tr>
+            <tr><td><code>double</code></td><td>floating-point numbers, ~15–16 significant digits</td><td>8 bytes</td><td><code>double pi = 3.14159;</code></td></tr>
+            <tr><td><code>_Bool</code> / <code>bool</code></td><td>true or false</td><td>1 byte</td><td><code>bool done = false;</code></td></tr>
+        </tbody>
+    </table>
+    <p>There are also size variants of <code>int</code>: <code>short</code>, <code>long</code> and <code>long long</code>. The standard only guarantees minimum ranges: <code>short</code> and <code>int</code> are at least 16 bits, <code>long</code> at least 32, <code>long long</code> at least 64. On today's common desktop systems <code>int</code> is 32 bits and <code>long</code> is 64 bits on Linux and macOS but 32 bits on Windows.</p>
+
+    <h3><code>char</code> is a small integer</h3>
+    <p>A <code>char</code> doesn't really store a letter. It stores a <em>number</em>, and by convention that number is a character code. Almost every system uses ASCII codes for the basic characters, where <code>'A'</code> is 65, <code>'a'</code> is 97 and <code>'0'</code> is 48. A character in <strong>single quotes</strong> is just a convenient way to write that number. That means you can print a <code>char</code> as a character with <code>%c</code> <em>or</em> as a number with <code>%d</code>, and you can do arithmetic on it:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            char letter = 'A';
+            printf("%c is stored as %d\n", letter, letter);
+
+            char next = letter + 1;
+            printf("the next letter is %c\n", next);
+
+            char digit = '7';
+            printf("the character '7' has code %d, but its digit value is %d\n", digit, digit - '0');
+            return 0;
+        }
+    </script>
+    <p>That last trick, <code>c - '0'</code>, turns a digit character into its numeric value. It works because the C standard guarantees the digits <code>'0'</code> to <code>'9'</code> have consecutive codes.</p>
+    <div class="callout warn">
+        <span class="callout-title"><code>'A'</code> is not <code>"A"</code></span>
+        <p>Single quotes make a single character (an integer). Double quotes make a <em>string</em>, a sequence of characters ending in a hidden zero byte. They're different types and aren't interchangeable. You'll learn strings properly in a later lesson.</p>
+    </div>
+    <p>One more quirk: whether plain <code>char</code> is signed or unsigned is <strong>implementation-defined</strong>. On x86 it's usually signed (−128 to 127); on ARM it's usually unsigned (0 to 255). If you need a byte with a guaranteed range, write <code>signed char</code> or <code>unsigned char</code> explicitly.</p>
+
+    <h3><code>float</code> vs <code>double</code></h3>
+    <p>Both store numbers with a fractional part, in binary floating-point. <code>double</code> has roughly twice the precision of <code>float</code>, and it's the default: a literal like <code>3.14</code> is a <code>double</code>, while <code>3.14f</code> is a <code>float</code>. Unless you have a specific reason (huge arrays, graphics hardware), use <code>double</code>.</p>
+    <p>Floating-point numbers are <em>approximations</em>. Most decimal fractions, like 0.1, can't be represented exactly in binary, so tiny errors creep in:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            float  f = 0.1f;
+            double d = 0.1;
+            printf("float : %.20f\n", f);
+            printf("double: %.20f\n", d);
+            printf("0.1 + 0.2 = %.17f\n", 0.1 + 0.2);
+            return 0;
+        }
+    </script>
+    <p>This isn't a C bug; every language using IEEE 754 floating-point behaves the same way. The practical lesson: never test floating-point numbers for exact equality, and never use them for money (count cents in an integer instead).</p>
+
+    <h3>Booleans</h3>
+    <p>C99 added the type <code>_Bool</code>, which holds only 0 or 1. The ugly name was chosen so it couldn't clash with existing code. Include <code>&lt;stdbool.h&gt;</code> and you get the friendlier spellings <code>bool</code>, <code>true</code> and <code>false</code>:</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stdbool.h>
+
+        int main(void) {
+            bool raining = true;
+            bool weekend = false;
+            printf("raining = %d, weekend = %d\n", raining, weekend);
+
+            bool b = 42;      // any nonzero value becomes 1
+            printf("b = %d\n", b);
+            return 0;
+        }
+    </script>
+    <p>There's no format specifier for <code>bool</code>; it prints as <code>0</code> or <code>1</code> with <code>%d</code>. (In C23, <code>bool</code>, <code>true</code> and <code>false</code> become real keywords and the header is no longer needed, but including it is still harmless.)</p>
+
+    <h2>How big is a type? <code>sizeof</code></h2>
+    <p>The <code>sizeof</code> operator gives the size of a type or a variable in <strong>bytes</strong>. Its result has type <code>size_t</code>, an unsigned integer type, which you print with <code>%zu</code>. Write <code>sizeof(type)</code> with parentheses for a type; for a variable, <code>sizeof x</code> works too.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            printf("char:      %zu\n", sizeof(char));
+            printf("short:     %zu\n", sizeof(short));
+            printf("int:       %zu\n", sizeof(int));
+            printf("long:      %zu\n", sizeof(long));
+            printf("long long: %zu\n", sizeof(long long));
+            printf("float:     %zu\n", sizeof(float));
+            printf("double:    %zu\n", sizeof(double));
+
+            double price = 9.99;
+            printf("price:     %zu\n", sizeof price);
+            return 0;
+        }
+    </script>
+    <p>On the 64-bit Linux machine this runs on you'll see 1, 2, 4, 8, 8, 4, 8, 8. Those are <em>typical</em> values, not guaranteed ones. The only size the standard pins down is <code>sizeof(char)</code>, which is 1 by definition. Code that assumes <code>int</code> is 4 bytes usually works, but if you need an exact width, <code>&lt;stdint.h&gt;</code> provides types like <code>int32_t</code> and <code>uint8_t</code>.</p>
+
+    <h2>Signed and unsigned</h2>
+    <p>Integer types are <strong>signed</strong> by default: they can hold negative numbers. Put <code>unsigned</code> in front and the same bits are used for non-negative values only, roughly doubling the maximum. With a 32-bit <code>int</code>:</p>
+    <table>
+        <thead><tr><th>Type</th><th>Range (32-bit)</th><th>Limits in <code>&lt;limits.h&gt;</code></th></tr></thead>
+        <tbody>
+            <tr><td><code>int</code></td><td>−2,147,483,648 to 2,147,483,647</td><td><code>INT_MIN</code>, <code>INT_MAX</code></td></tr>
+            <tr><td><code>unsigned int</code></td><td>0 to 4,294,967,295</td><td><code>UINT_MAX</code></td></tr>
+        </tbody>
+    </table>
+
+    <h3>Overflow: unsigned wraps, signed is undefined</h3>
+    <p>What happens when a calculation goes past the end of the range? The answer is different for unsigned and signed types, and it's one of the most important rules in C.</p>
+    <p><strong>Unsigned arithmetic wraps around</strong>, like a car's odometer. The standard defines it as arithmetic modulo 2<sup>N</sup>, so it's perfectly well-defined:</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <limits.h>
+
+        int main(void) {
+            unsigned int u = UINT_MAX;
+            printf("u     = %u\n", u);
+            u = u + 1;
+            printf("u + 1 = %u\n", u);
+
+            unsigned int zero = 0;
+            zero = zero - 1;
+            printf("0 - 1 = %u\n", zero);
+            return 0;
+        }
+    </script>
+    <p><strong>Signed overflow is undefined behaviour.</strong> The standard says nothing about what happens if an <code>int</code> calculation exceeds <code>INT_MAX</code>. It often <em>appears</em> to wrap to a large negative number, but you can't rely on that: optimising compilers assume signed overflow never happens and may transform your code in surprising ways because of it.</p>
+    <script type="text/c" data-static>
+        int big = INT_MAX;
+        big = big + 1;       // undefined behaviour: anything may happen
+    </script>
+    <div class="callout danger">
+        <span class="callout-title">What "undefined behaviour" means</span>
+        <p><strong>Undefined behaviour</strong> (UB) means the C standard places no requirements at all on what your program does. It might crash, give a plausible-looking wrong answer, or work perfectly today and break when you change compiler flags. It is not "implementation-defined" (where each compiler must pick and document a behaviour); it's a bug. You'll meet several kinds of UB in this course, and the rule is always the same: don't do it.</p>
+    </div>
+    <div class="callout warn">
+        <span class="callout-title">Mixing signed and unsigned</span>
+        <p>When you compare or combine a signed and an unsigned <code>int</code>, the signed one is converted to unsigned. So <code>-1 &lt; 1u</code> is <em>false</em>: −1 becomes 4,294,967,295. <code>-Wextra</code> warns about signed/unsigned comparisons; take those warnings seriously.</p>
+    </div>
+
+    <h2>Format specifiers</h2>
+    <p><code>printf</code> needs a specifier that matches each argument's type. Here are the ones you'll use most:</p>
+    <table>
+        <thead><tr><th>Specifier</th><th>Type</th><th>Example output</th></tr></thead>
+        <tbody>
+            <tr><td><code>%d</code></td><td><code>int</code> (also <code>char</code>, <code>short</code>, <code>bool</code>)</td><td><code>-42</code></td></tr>
+            <tr><td><code>%u</code></td><td><code>unsigned int</code></td><td><code>42</code></td></tr>
+            <tr><td><code>%ld</code></td><td><code>long</code> (<code>%lld</code> for <code>long long</code>)</td><td><code>9000000000</code></td></tr>
+            <tr><td><code>%f</code></td><td><code>double</code> (and <code>float</code>, which is promoted)</td><td><code>3.141590</code></td></tr>
+            <tr><td><code>%.2f</code></td><td><code>double</code>, 2 digits after the point</td><td><code>3.14</code></td></tr>
+            <tr><td><code>%c</code></td><td>a character (<code>char</code>)</td><td><code>A</code></td></tr>
+            <tr><td><code>%s</code></td><td>a string</td><td><code>hello</code></td></tr>
+            <tr><td><code>%zu</code></td><td><code>size_t</code> (e.g. the result of <code>sizeof</code>)</td><td><code>8</code></td></tr>
+            <tr><td><code>%x</code></td><td><code>unsigned int</code>, in hexadecimal</td><td><code>ff</code></td></tr>
+            <tr><td><code>%p</code></td><td>a pointer, cast to <code>void *</code></td><td><code>0x7ffc1a2b</code></td></tr>
+        </tbody>
+    </table>
+    <p>You can also give a minimum <strong>width</strong> to line up columns: <code>%5d</code> pads to 5 characters on the left, <code>%-5d</code> on the right, and <code>%05d</code> pads with zeros.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            long distance = 9000000000L;
+            double pi = 3.14159;
+            unsigned int mask = 255;
+
+            printf("%ld km\n", distance);
+            printf("%f | %.2f | %.0f\n", pi, pi, pi);
+            printf("%u in hex is %x\n", mask, mask);
+            printf("%c%c%c\n", 'C', 'a', 't');
+            printf("%s, %s!\n", "Hello", "world");
+            printf("[%5d] [%-5d] [%05d]\n", 42, 42, 42);
+            return 0;
+        }
+    </script>
+    <p>Notice that <code>%.0f</code> <em>rounds</em> (3.14159 becomes 3) rather than truncating, and that a <code>long</code> literal gets an <code>L</code> suffix.</p>
+
+    <h2>Constants with <code>const</code></h2>
+    <p>Add <code>const</code> to a declaration and the variable becomes read-only after it's initialised. Any attempt to assign to it is a compile error. Use it for values that shouldn't change: it documents your intent and lets the compiler catch mistakes.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            const double TAX_RATE = 0.2;
+            const int DAYS_PER_WEEK = 7;
+
+            double price = 50.0;
+            printf("with tax: %.2f\n", price * (1 + TAX_RATE));
+            printf("weeks in 28 days: %d\n", 28 / DAYS_PER_WEEK);
+
+            // TAX_RATE = 0.25;   // uncomment this: error, assignment of read-only variable
+            return 0;
+        }
+    </script>
+    <p>Uncomment the last assignment and run it to see the error. Because a <code>const</code> must get its value when it's declared, you always initialise it on the same line.</p>
+
+    <h2>Reading input with <code>scanf</code></h2>
+    <p><code>printf</code>'s mirror image is <code>scanf</code>, which <em>reads</em> formatted input from standard input (normally the keyboard; here, the <strong>Input</strong> box). It uses almost the same specifiers. The example below has its input prefilled; try changing the numbers in the box and running again:</p>
+    <script type="text/c" data-stdin="7 5">
+        #include <stdio.h>
+
+        int main(void) {
+            int a, b;
+            printf("Enter two numbers: ");
+            if (scanf("%d %d", &a, &b) != 2) {
+                printf("that wasn't two numbers\n");
+                return 1;
+            }
+            printf("\n%d + %d = %d\n", a, b, a + b);
+            return 0;
+        }
+    </script>
+
+    <h3>Why the <code>&amp;</code>?</h3>
+    <p>The <code>&amp;</code> in <code>&amp;a</code> is the <strong>address-of</strong> operator. C passes arguments to functions <em>by value</em>: the function gets a copy. If you wrote <code>scanf("%d", a)</code>, <code>scanf</code> would receive a copy of <code>a</code>'s current (garbage) value, which is useless; it needs to know <em>where</em> <code>a</code> lives so it can write the number into it. <code>&amp;a</code> hands it that location. You'll understand this fully in the Pointer Basics lesson; for now, remember that <code>scanf</code> needs an <code>&amp;</code> before each plain variable.</p>
+    <div class="callout danger">
+        <span class="callout-title">Forgetting <code>&amp;</code> is a classic crash</span>
+        <p><code>scanf("%d", a);</code> compiles (with a warning, if warnings are on) and then treats <code>a</code>'s garbage value as an address to write to. That's undefined behaviour and usually a crash.</p>
+    </div>
+    <p>A few more details:</p>
+    <ul>
+        <li><strong>Check the return value.</strong> <code>scanf</code> returns how many items it successfully read. If the user types <code>abc</code> where a number was expected, it returns 0 and leaves your variable untouched. The example above checks for exactly 2.</li>
+        <li><strong>Whitespace is skipped.</strong> <code>%d</code> skips spaces and newlines before the number, so <code>7 5</code>, <code>7&nbsp;&nbsp;&nbsp;5</code> and <code>7</code> on one line with <code>5</code> on the next all work.</li>
+        <li><strong><code>%lf</code> for <code>double</code>.</strong> Here <code>scanf</code> and <code>printf</code> differ: <code>printf</code> uses <code>%f</code> for both float and double, but <code>scanf</code> needs <code>%f</code> for <code>float</code> and <code>%lf</code> for <code>double</code>, because it writes through the address and must know the exact size.</li>
+        <li><strong><code>" %c"</code> for a character.</strong> Unlike <code>%d</code>, <code>%c</code> does <em>not</em> skip whitespace, so it would happily read a leftover newline. A space before it in the format string (<code>" %c"</code>) skips any whitespace first.</li>
+    </ul>
+    <script type="text/c" data-stdin="Y 1.85">
+        #include <stdio.h>
+
+        int main(void) {
+            char answer;
+            double height;
+            if (scanf(" %c %lf", &answer, &height) != 2) {
+                return 1;
+            }
+            printf("answer: %c, height: %.2f m\n", answer, height);
+            return 0;
+        }
+    </script>
+
+    <h2>Uninitialised variables hold garbage</h2>
+    <p>When you declare a local variable without initialising it, C does not set it to zero. It holds whatever bits happened to be in that memory before, so its value is <strong>indeterminate</strong>. Reading it is a bug, and for many local variables it's undefined behaviour.</p>
+    <script type="text/c" data-static>
+        int total;              // indeterminate: NOT zero
+        total = total + 5;      // bug: reads garbage
+        printf("%d\n", total);  // could print anything
+
+        int sum = 0;            // fix: always initialise
+        sum = sum + 5;          // sum is now 5
+    </script>
+    <p>The frustrating thing about this bug is that it often seems to work: the garbage happens to be 0 in a small test program, and then a different value shows up once the program grows. Make it a habit to initialise every variable when you declare it. Compiling with <code>-Wall</code> catches many (not all) cases with a "may be used uninitialized" warning.</p>
+    <div class="callout tip">
+        <span class="callout-title">Globals are the exception</span>
+        <p>Variables declared outside any function (globals) and <code>static</code> variables <em>are</em> automatically initialised to zero. Only ordinary local variables start out as garbage. Still, an explicit <code>= 0</code> makes your intent obvious.</p>
+    </div>
+
+    <div class="exercise" data-id="vt-rectangle" data-stdin="4.5 2">
+        <h3>Rectangle calculator</h3>
+        <p>Read a width and a height (both <code>double</code>) with <code>scanf</code>, then print the area and perimeter with two digits after the decimal point. With the input <code>4.5 2</code> the output must be:</p>
+<pre class="terminal">area: 9.00
+perimeter: 13.00</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                double width = 0, height = 0;
+
+                // TODO: read width and height with scanf (remember %lf and &)
+
+                // TODO: print area and perimeter with %.2f
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            area: 9.00
+            perimeter: 13.00
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                double width = 0, height = 0;
+
+                if (scanf("%lf %lf", &width, &height) != 2) {
+                    return 1;
+                }
+
+                printf("area: %.2f\n", width * height);
+                printf("perimeter: %.2f\n", 2 * (width + height));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Use <code>scanf("%lf %lf", &amp;width, &amp;height);</code>. For a <code>double</code>, <code>scanf</code> needs <code>%lf</code> but <code>printf</code> uses <code>%f</code>. The perimeter is <code>2 * (width + height)</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="vt-char-codes" data-stdin="g">
+        <h3>Characters are numbers</h3>
+        <p>Read a single character with <code>scanf(" %c", ...)</code>. Print its character code, then the character that comes after it, in exactly this format. For the input <code>g</code>:</p>
+<pre class="terminal">'g' has code 103
+next: 'h'</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                char c = 0;
+
+                // TODO: read one character into c
+
+                // TODO: print its code and the next character
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            'g' has code 103
+            next: 'h'
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                char c = 0;
+
+                if (scanf(" %c", &c) != 1) {
+                    return 1;
+                }
+
+                printf("'%c' has code %d\n", c, c);
+                printf("next: '%c'\n", c + 1);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>The same <code>char</code> can be printed twice in one <code>printf</code>: once with <code>%c</code> and once with <code>%d</code>. For the next character, pass <code>c + 1</code> to <code>%c</code>. Single quotes inside a double-quoted string don't need escaping.</p></details>
+    </div>
+
+    <div class="exercise" data-id="vt-unsigned-wrap">
+        <h3>Watch it wrap</h3>
+        <p>An <code>unsigned char</code> is a byte that holds 0 to 255. Starting from the given value, add 1 and print, then subtract 2 from <code>zero</code> and print. Use <code>%d</code> for both (an <code>unsigned char</code> is promoted to <code>int</code> when passed to <code>printf</code>). Expected output:</p>
+<pre class="terminal">255 + 1 = 0
+0 - 2 = 254</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                unsigned char byte = 255;
+                unsigned char zero = 0;
+
+                // TODO: set byte to byte + 1, and zero to zero - 2, then print
+                // in the format shown
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            255 + 1 = 0
+            0 - 2 = 254
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                unsigned char byte = 255;
+                unsigned char zero = 0;
+
+                byte = byte + 1;
+                zero = zero - 2;
+
+                printf("255 + 1 = %d\n", byte);
+                printf("0 - 2 = %d\n", zero);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Storing a value that's out of range into an unsigned type keeps it modulo 256 here: 256 becomes 0, and −2 becomes 254. Assign back into the variables, then print them.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "Which of these is guaranteed by the C standard?",
+        "choices": ["<code>sizeof(int)</code> is 4", "<code>sizeof(long)</code> is 8", "<code>sizeof(char)</code> is 1", "<code>sizeof(double)</code> is 16"],
+        "answer": 2, "explain": "<code>sizeof(char)</code> is 1 by definition. The other sizes are typical on some platforms but implementation-defined." },
+      { "q": "What does this print?", "type": "output",
+        "code": "char c = 'A' + 2;\nprintf(\"%c\", c);",
+        "answer": "C", "explain": "A <code>char</code> is a small integer. <code>'A' + 2</code> is the code two after <code>'A'</code>, which is <code>'C'</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "unsigned int u = 0;\nu = u - 1;\nprintf(\"%d\", u > 100);",
+        "answer": "1", "explain": "Unsigned arithmetic wraps: <code>0 - 1</code> becomes <code>UINT_MAX</code>, a huge number, so <code>u &gt; 100</code> is true (1)." },
+      { "q": "What happens when a signed <code>int</code> calculation goes past <code>INT_MAX</code>?",
+        "choices": ["Undefined behaviour", "It always wraps to <code>INT_MIN</code>", "It stops at <code>INT_MAX</code>", "The program always crashes"],
+        "answer": 0, "explain": "Signed overflow is undefined behaviour. It may <em>appear</em> to wrap, but the compiler is allowed to assume it never happens. Only unsigned arithmetic is defined to wrap." },
+      { "q": "Why does <code>scanf(\"%d\", &amp;n)</code> need the <code>&amp;</code>?",
+        "choices": ["It converts <code>n</code> to a string", "<code>scanf</code> needs the address of <code>n</code> so it can store the value there", "It's optional, just good style", "It tells <code>scanf</code> that <code>n</code> is an int"],
+        "answer": 1, "explain": "C passes arguments by value. To <em>modify</em> <code>n</code>, <code>scanf</code> needs to know where <code>n</code> lives, which is what <code>&amp;n</code> provides." },
+      { "q": "What does this print?", "type": "output",
+        "code": "double x = 2.5;\nprintf(\"%.3f\", x);",
+        "answer": "2.500", "explain": "<code>%.3f</code> prints exactly three digits after the decimal point, padding with zeros." },
+      { "q": "Which specifier should you use to print the result of <code>sizeof</code>?",
+        "choices": ["<code>%d</code>", "<code>%f</code>", "<code>%s</code>", "<code>%zu</code>"],
+        "answer": 3, "explain": "<code>sizeof</code> yields a <code>size_t</code>, an unsigned type whose specifier is <code>%zu</code>." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

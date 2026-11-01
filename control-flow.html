@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Flow · Learn C</title>
+    <meta name="description" content="Making decisions with if, else and switch, and repeating work with while, do-while and for loops, break and continue.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
+</head>
+<body>
+<main>
+    <h1>Control Flow</h1>
+    <p class="lead">So far every program has run straight from the top of <code>main</code> to the bottom. Real programs make decisions and repeat work. C gives you a small, sharp set of tools for that: <code>if</code> and <code>switch</code> to choose, and <code>while</code>, <code>do</code>-<code>while</code> and <code>for</code> to loop. Master these and you can write almost any algorithm.</p>
+
+    <h2>Making decisions: <code>if</code></h2>
+    <p>An <code>if</code> statement runs a block of code only when its condition is true. Add <code>else</code> for what to do otherwise, and chain <code>else if</code> to test several conditions in turn. Try different scores in the input box:</p>
+    <script type="text/c" data-stdin="83">
+        #include <stdio.h>
+
+        int main(void) {
+            int score = 0;
+            if (scanf("%d", &score) != 1) {
+                return 1;
+            }
+
+            if (score >= 90) {
+                printf("%d: grade A\n", score);
+            } else if (score >= 80) {
+                printf("%d: grade B\n", score);
+            } else if (score >= 70) {
+                printf("%d: grade C\n", score);
+            } else {
+                printf("%d: try again\n", score);
+            }
+            return 0;
+        }
+    </script>
+    <p>The conditions are checked <strong>top to bottom</strong>, and only the first true one runs; the rest are skipped. That's why the second test can be just <code>score &gt;= 80</code>: if we get there, we already know the score is below 90. Put the conditions in the wrong order (<code>&gt;= 70</code> first) and everyone above 70 gets a C.</p>
+
+    <h3>Always use braces</h3>
+    <p>If the body is a single statement, C lets you leave out the braces. Don't. This code is indented as if both lines belong to the <code>if</code>, but only the first does:</p>
+    <script type="text/c" data-static>
+        if (balance < 0)
+            printf("Overdrawn!\n");
+            charge_fee();          // NOT part of the if: runs every time
+    </script>
+    <p>Indentation means nothing to the compiler. Real security bugs (Apple's infamous 2014 "goto fail") have come from exactly this. Writing braces every time makes it impossible.</p>
+
+    <h2>What counts as true?</h2>
+    <p>C's rule is simple: in a condition, <strong>zero is false and every other value is true</strong>. A condition doesn't have to be a comparison; any expression with a value will do. That's why you'll often see idioms like these:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int count = 3;
+            int errors = 0;
+
+            if (count) {                // same as: if (count != 0)
+                printf("we have %d items\n", count);
+            }
+            if (!errors) {              // same as: if (errors == 0)
+                printf("no errors\n");
+            }
+            if (-1) {
+                printf("-1 is true too: anything nonzero is\n");
+            }
+            return 0;
+        }
+    </script>
+    <p>Use the short forms when the variable is naturally a yes/no or a count. When you really mean a number comparison, writing <code>!= 0</code> explicitly is often clearer. And remember the trap from the last lesson: <code>if (x = 0)</code> assigns zero, which is false, so the body never runs.</p>
+
+    <h2>Choosing among many: <code>switch</code></h2>
+    <p>When you're comparing one integer value against a list of constants, <code>switch</code> is often cleaner than a long <code>else if</code> chain:</p>
+    <script type="text/c" data-stdin="3">
+        #include <stdio.h>
+
+        int main(void) {
+            int day = 0;
+            if (scanf("%d", &day) != 1) {
+                return 1;
+            }
+
+            switch (day) {
+            case 1:
+                printf("Monday\n");
+                break;
+            case 2:
+                printf("Tuesday\n");
+                break;
+            case 3:
+                printf("Wednesday\n");
+                break;
+            case 6:
+            case 7:
+                printf("Weekend!\n");
+                break;
+            default:
+                printf("Some other day\n");
+                break;
+            }
+            return 0;
+        }
+    </script>
+    <p>How it works:</p>
+    <ul>
+        <li>The expression in <code>switch ( )</code> must be an integer type (which includes <code>char</code>). You can't switch on a string or a <code>double</code>.</li>
+        <li>Each <code>case</code> label must be a constant, like <code>3</code> or <code>'q'</code>. No variables, no ranges.</li>
+        <li>Execution <strong>jumps</strong> to the matching label and runs from there. <code>default</code> catches everything that didn't match.</li>
+        <li><code>break</code> leaves the <code>switch</code>.</li>
+    </ul>
+
+    <h3>Fallthrough: the forgotten <code>break</code></h3>
+    <p>A <code>case</code> label is only an entry point, not a wall. Without a <code>break</code>, execution <strong>falls through</strong> into the next case's code and keeps going. Stacking labels with no code between them, like <code>case 6: case 7:</code> above, uses this on purpose. Forgetting a <code>break</code> by accident is a classic bug:</p>
+    <script type="text/c" data-static>
+        switch (choice) {
+        case 1:
+            printf("Saving...\n");      // no break!
+        case 2:
+            printf("Deleting...\n");    // choice 1 runs this too
+            break;
+        }
+    </script>
+    <p>Occasionally falling through really is what you want. Then say so with a comment, which tells human readers it isn't a mistake (and gcc recognises it and won't warn). Here each level gets its own perk <em>plus</em> all the perks of the levels below:</p>
+    <script type="text/c" data-stdin="2">
+        #include <stdio.h>
+
+        int main(void) {
+            int level = 0;
+            if (scanf("%d", &level) != 1) {
+                return 1;
+            }
+
+            printf("Level %d perks:\n", level);
+            switch (level) {
+            case 3:
+                printf("  - free shipping\n");
+                // fall through
+            case 2:
+                printf("  - early access\n");
+                // fall through
+            case 1:
+                printf("  - newsletter\n");
+                break;
+            default:
+                printf("  (none)\n");
+                break;
+            }
+            return 0;
+        }
+    </script>
+
+    <h2>Repeating: the <code>while</code> loop</h2>
+    <p>A <code>while</code> loop checks its condition, runs the body if it's true, and then goes back and checks again. It stops the first time the condition is false. If the condition is false to begin with, the body never runs at all.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int n = 1;
+            while (n <= 100) {
+                printf("%d ", n);
+                n = n * 2;
+            }
+            printf("\n");
+            return 0;
+        }
+    </script>
+    <p><code>while</code> is the natural choice when you don't know in advance how many times you'll loop: "keep doubling until we pass 100", "keep reading until the input runs out".</p>
+
+    <h2>Run at least once: <code>do</code>-<code>while</code></h2>
+    <p>A <code>do</code>-<code>while</code> loop checks its condition at the <em>end</em>, so the body always runs at least once. That fits "try something, then decide whether to try again", like asking for input until it's valid:</p>
+    <script type="text/c" data-stdin="-4 0 12">
+        #include <stdio.h>
+
+        int main(void) {
+            int n = 0;
+            do {
+                printf("Enter a positive number: ");
+                if (scanf("%d", &n) != 1) {
+                    printf("\nno more input\n");
+                    return 1;
+                }
+                printf("%d\n", n);
+            } while (n <= 0);
+
+            printf("Thanks, you entered %d\n", n);
+            return 0;
+        }
+    </script>
+    <p>Note the semicolon after <code>while (n &lt;= 0)</code>: it's required for <code>do</code>-<code>while</code>, and it's the <em>only</em> loop where a semicolon belongs there.</p>
+
+    <h2>Counting: the <code>for</code> loop</h2>
+    <p>Most loops follow the same pattern: set up a counter, check it, update it. A <code>for</code> loop puts all three parts on one line:</p>
+    <script type="text/c" data-static>
+        for (initialise; condition; update) {
+            body
+        }
+    </script>
+    <p>The initialise part runs once. Then, each time round: check the condition (stop if false), run the body, run the update. Step through it below and watch <code>i</code> and <code>sum</code> change:</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+
+            int main(void) {
+                int sum = 0;
+                for (int i = 1; i <= 3; i++) {
+                    sum += i;
+                    printf("i=%d sum=%d\n", i, sum);
+                }
+                printf("total %d\n", sum);
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "heap": false,
+          "steps": [
+            { "line": 3, "note": "<code>main</code> starts with an empty stack frame.", "stack": [{ "fn": "main", "vars": [] }] },
+            { "line": 4, "note": "<code>sum</code> is created and set to <code>0</code>. Initialising it matters: we're about to add to it.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "0" }] }] },
+            { "line": 5, "note": "The <em>initialise</em> part runs once: <code>int i = 1</code>. Then the <em>condition</em> <code>1 &lt;= 3</code> is true, so we enter the body.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "0" }, { "name": "i", "type": "int", "addr": "0x7ffc14", "value": "1" }] }] },
+            { "line": 6, "note": "<code>sum += i</code> adds 1 to <code>sum</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "1" }, { "name": "i", "type": "int", "addr": "0x7ffc14", "value": "1" }] }] },
+            { "line": 7, "note": "Print the current values.", "output": "i=1 sum=1",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "1" }, { "name": "i", "type": "int", "addr": "0x7ffc14", "value": "1" }] }] },
+            { "line": 5, "note": "End of the body, so the <em>update</em> <code>i++</code> runs: <code>i</code> is now 2. The condition <code>2 &lt;= 3</code> is checked again: still true.", "output": "i=1 sum=1",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "1" }, { "name": "i", "type": "int", "addr": "0x7ffc14", "value": "2" }] }] },
+            { "line": 6, "note": "<code>sum += i</code>: 1 + 2 = 3.", "output": "i=1 sum=1",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "3" }, { "name": "i", "type": "int", "addr": "0x7ffc14", "value": "2" }] }] },
+            { "line": 7, "note": "Print again.", "output": "i=1 sum=1\ni=2 sum=3",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "3" }, { "name": "i", "type": "int", "addr": "0x7ffc14", "value": "2" }] }] },
+            { "line": 5, "note": "<code>i++</code> makes <code>i</code> 3, and <code>3 &lt;= 3</code> is still true (that's why we used <code>&lt;=</code>).", "output": "i=1 sum=1\ni=2 sum=3",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "3" }, { "name": "i", "type": "int", "addr": "0x7ffc14", "value": "3" }] }] },
+            { "line": 6, "note": "<code>sum += i</code>: 3 + 3 = 6.", "output": "i=1 sum=1\ni=2 sum=3",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "6" }, { "name": "i", "type": "int", "addr": "0x7ffc14", "value": "3" }] }] },
+            { "line": 7, "note": "Third and last print from inside the loop.", "output": "i=1 sum=1\ni=2 sum=3\ni=3 sum=6",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "6" }, { "name": "i", "type": "int", "addr": "0x7ffc14", "value": "3" }] }] },
+            { "line": 5, "note": "<code>i++</code> makes <code>i</code> 4. Now <code>4 &lt;= 3</code> is <strong>false</strong>, so the loop ends without running the body again.", "output": "i=1 sum=1\ni=2 sum=3\ni=3 sum=6",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "6" }, { "name": "i", "type": "int", "addr": "0x7ffc14", "value": "4" }] }] },
+            { "line": 9, "note": "<code>i</code> was declared inside the <code>for</code>, so it only exists inside the loop and is now gone. <code>sum</code> lives on.", "output": "i=1 sum=1\ni=2 sum=3\ni=3 sum=6\ntotal 6",
+              "stack": [{ "fn": "main", "vars": [{ "name": "sum", "type": "int", "addr": "0x7ffc10", "value": "6" }] }] },
+            { "line": 10, "note": "<code>main</code> returns and its frame is gone.", "output": "i=1 sum=1\ni=2 sum=3\ni=3 sum=6\ntotal 6", "stack": [] }
+          ]
+        }
+        </script>
+    </div>
+
+    <p>Any <code>for</code> loop can be rewritten as a <code>while</code> loop and vice versa; choose whichever reads better. Use <code>for</code> when there's a clear counter, and <code>while</code> when you're looping until something happens. A few more things to know:</p>
+    <ul>
+        <li>A variable declared in the initialise part (<code>for (int i = 0; …)</code>) exists only inside the loop. That's usually what you want.</li>
+        <li>The update doesn't have to be <code>i++</code>: <code>i += 2</code>, <code>i--</code> and <code>i *= 2</code> are all fine.</li>
+        <li>Any of the three parts can be empty. <code>for (;;)</code> loops forever (until a <code>break</code>).</li>
+    </ul>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            for (int i = 10; i > 0; i -= 3) {
+                printf("%d ", i);
+            }
+            printf("liftoff!\n");
+
+            for (int i = 0; i < 5; i++) {
+                printf("%d squared is %d\n", i, i * i);
+            }
+            return 0;
+        }
+    </script>
+
+    <h2>Leaving early: <code>break</code> and <code>continue</code></h2>
+    <p>Two keywords let you change a loop's flow from inside the body:</p>
+    <ul>
+        <li><code>break</code> exits the loop immediately. Execution continues after the loop.</li>
+        <li><code>continue</code> skips the rest of <em>this</em> iteration and goes on to the next one. In a <code>for</code> loop, the update still runs.</li>
+    </ul>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            // continue: print only the odd numbers
+            for (int i = 1; i <= 10; i++) {
+                if (i % 2 == 0) {
+                    continue;
+                }
+                printf("%d ", i);
+            }
+            printf("\n");
+
+            // break: find the first multiple of 7 above 50
+            int n = 51;
+            while (1) {
+                if (n % 7 == 0) {
+                    break;
+                }
+                n++;
+            }
+            printf("first multiple of 7 above 50: %d\n", n);
+            return 0;
+        }
+    </script>
+    <p><code>while (1)</code> with a <code>break</code> inside is a common, perfectly respectable pattern when the exit test fits naturally in the middle of the loop. Note that <code>break</code> only leaves the <em>innermost</em> loop or <code>switch</code> it's inside. That matters for nested loops, and it's also why a <code>break</code> inside a <code>switch</code> inside a loop leaves the <code>switch</code>, not the loop.</p>
+
+    <h2>Loops inside loops</h2>
+    <p>A loop body can contain another loop. For each single step of the outer loop, the inner loop runs all the way through. Two nested counting loops are the natural way to work with rows and columns:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            for (int row = 1; row <= 5; row++) {
+                for (int col = 1; col <= 5; col++) {
+                    printf("%4d", row * col);
+                }
+                printf("\n");    // end of a row
+            }
+            return 0;
+        }
+    </script>
+    <p>The inner loop's limit can depend on the outer loop's counter. Here row <code>r</code> prints <code>r</code> stars, giving a triangle:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            for (int row = 1; row <= 4; row++) {
+                for (int i = 0; i < row; i++) {
+                    printf("#");
+                }
+                printf("\n");
+            }
+            return 0;
+        }
+    </script>
+
+    <h2>Loop bugs everyone writes once</h2>
+    <h3>The infinite loop</h3>
+    <p>If nothing in the body ever makes the condition false, the loop never ends. The usual cause is forgetting the update:</p>
+    <script type="text/c" data-static>
+        int i = 0;
+        while (i < 10) {
+            printf("%d\n", i);
+            // forgot i++: i is 0 forever, so this never stops
+        }
+    </script>
+    <p>A sneakier version is a stray semicolon. <code>while (i &lt; 10);</code> (note the <code>;</code>) is a loop whose body is the empty statement, so it spins forever without ever reaching the block below it. The same mistake after a <code>for</code> or an <code>if</code> silently detaches the body. If a program seems to hang, look for these first. (On this site, a program that runs too long is stopped automatically.)</p>
+    <script type="text/c" data-static>
+        for (int i = 0; i < 3; i++);   // <- this semicolon IS the loop body
+        {
+            printf("hello\n");         // runs once, after the loop
+        }
+    </script>
+
+    <h3>Off by one</h3>
+    <p>"Run this 10 times" is <code>for (int i = 0; i &lt; 10; i++)</code>, counting 0 to 9. Write <code>&lt;=</code> by habit and you get 11 iterations. With arrays (two lessons from now) that extra iteration reads past the end, which is undefined behaviour. A useful check: a loop from <code>a</code> while <code>i &lt; b</code> runs exactly <code>b - a</code> times.</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int count = 0;
+            for (int i = 0; i < 10; i++) {
+                count++;
+            }
+            printf("i < 10  ran %d times\n", count);
+
+            count = 0;
+            for (int i = 0; i <= 10; i++) {
+                count++;
+            }
+            printf("i <= 10 ran %d times\n", count);
+            return 0;
+        }
+    </script>
+    <div class="callout tip">
+        <span class="callout-title">Prefer half-open ranges</span>
+        <p>The convention "start at 0, stop when <code>i &lt; n</code>" (the range [0, n), including 0 but excluding n) is the idiom of C. It matches how arrays are indexed, the count is just <code>n</code>, and empty ranges (<code>n == 0</code>) work with no special case. When you see <code>&lt;=</code> in a loop condition, give it a second look.</p>
+    </div>
+
+    <div class="exercise" data-id="cf-fizzbuzz">
+        <h3>FizzBuzz</h3>
+        <p>The classic. Print the numbers 1 to 15, one per line, but print <code>Fizz</code> instead of multiples of 3, <code>Buzz</code> instead of multiples of 5, and <code>FizzBuzz</code> instead of multiples of both. The expected output is:</p>
+<pre class="terminal">1
+2
+Fizz
+4
+Buzz
+Fizz
+7
+8
+Fizz
+Buzz
+11
+Fizz
+13
+14
+FizzBuzz</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                for (int i = 1; i <= 15; i++) {
+                    // TODO: print Fizz, Buzz, FizzBuzz or the number
+                }
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            1
+            2
+            Fizz
+            4
+            Buzz
+            Fizz
+            7
+            8
+            Fizz
+            Buzz
+            11
+            Fizz
+            13
+            14
+            FizzBuzz
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                for (int i = 1; i <= 15; i++) {
+                    if (i % 15 == 0) {
+                        printf("FizzBuzz\n");
+                    } else if (i % 3 == 0) {
+                        printf("Fizz\n");
+                    } else if (i % 5 == 0) {
+                        printf("Buzz\n");
+                    } else {
+                        printf("%d\n", i);
+                    }
+                }
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Use an <code>if</code> / <code>else if</code> chain with <code>%</code>. Order matters: test for "multiple of both" (<code>i % 15 == 0</code>) <em>first</em>, or 15 will be caught by the multiple-of-3 test and print just <code>Fizz</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="cf-digit-sum" data-stdin="4096">
+        <h3>Sum of digits</h3>
+        <p>Read a non-negative integer and print the sum of its decimal digits, using a loop with <code>% 10</code> and <code>/ 10</code>. For the input <code>4096</code> (4 + 0 + 9 + 6) the output must be:</p>
+<pre class="terminal">digit sum of 4096 is 19</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                int n = 0;
+                if (scanf("%d", &n) != 1) {
+                    return 1;
+                }
+                int original = n;
+                int sum = 0;
+
+                // TODO: loop while n has digits left, adding the last digit to sum
+
+                printf("digit sum of %d is %d\n", original, sum);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            digit sum of 4096 is 19
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                int n = 0;
+                if (scanf("%d", &n) != 1) {
+                    return 1;
+                }
+                int original = n;
+                int sum = 0;
+
+                while (n > 0) {
+                    sum += n % 10;
+                    n /= 10;
+                }
+
+                printf("digit sum of %d is %d\n", original, sum);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p><code>n % 10</code> is the last digit and <code>n /= 10</code> removes it. Repeat <code>while (n &gt; 0)</code>. Try other inputs in the box to check your loop, like <code>7</code> or <code>0</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="cf-triangle" data-stdin="5">
+        <h3>Number triangle</h3>
+        <p>Read a height <code>h</code>, then print <code>h</code> rows where row <code>r</code> contains the numbers 1 to <code>r</code>, separated by spaces. Use nested <code>for</code> loops. For the input <code>5</code>:</p>
+<pre class="terminal">1
+1 2
+1 2 3
+1 2 3 4
+1 2 3 4 5</pre>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int main(void) {
+                int h = 0;
+                if (scanf("%d", &h) != 1) {
+                    return 1;
+                }
+
+                // TODO: an outer loop over rows, an inner loop over the numbers in a row
+
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            1
+            1 2
+            1 2 3
+            1 2 3 4
+            1 2 3 4 5
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int main(void) {
+                int h = 0;
+                if (scanf("%d", &h) != 1) {
+                    return 1;
+                }
+
+                for (int row = 1; row <= h; row++) {
+                    for (int k = 1; k <= row; k++) {
+                        printf("%d ", k);
+                    }
+                    printf("\n");
+                }
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>The outer loop counts <code>row</code> from 1 to <code>h</code>. Inside it, a second loop counts from 1 to <code>row</code>, printing each number followed by a space. After the inner loop, print <code>\n</code>. (Trailing spaces at the end of a line are ignored by the checker.)</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "Which of these values counts as <em>false</em> in an <code>if</code> condition?",
+        "choices": ["<code>-1</code>", "<code>1</code>", "<code>0</code>", "<code>100</code>"],
+        "answer": 2, "explain": "Only zero is false. Every other value, including negative numbers, is true." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int x = 2;\nswitch (x) {\ncase 1: printf(\"a\");\ncase 2: printf(\"b\");\ncase 3: printf(\"c\");\n    break;\ndefault: printf(\"d\");\n}",
+        "answer": "bc", "explain": "Execution jumps to <code>case 2</code>, prints <code>b</code>, then falls through into <code>case 3</code> because there's no <code>break</code>, prints <code>c</code>, and stops at the <code>break</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int n = 10;\ndo {\n    printf(\"%d \", n);\n    n++;\n} while (n < 5);",
+        "answer": "10", "explain": "A <code>do</code>-<code>while</code> loop always runs its body once before checking the condition. <code>11 &lt; 5</code> is false, so it stops after one iteration." },
+      { "q": "How many times does the body of <code>for (int i = 0; i &lt;= 10; i++)</code> run?",
+        "choices": ["9", "10", "11", "It never stops"],
+        "answer": 2, "explain": "It runs for i = 0, 1, …, 10: that's 11 times. <code>i &lt; 10</code> would give 10." },
+      { "q": "What does this print?", "type": "output",
+        "code": "for (int i = 1; i <= 6; i++) {\n    if (i == 5) break;\n    if (i % 2 == 0) continue;\n    printf(\"%d\", i);\n}",
+        "answer": "13", "explain": "1 prints, 2 is skipped by <code>continue</code>, 3 prints, 4 is skipped, and at 5 <code>break</code> leaves the loop before anything prints." },
+      { "q": "Why might <code>while (n &gt; 0); { n--; }</code> hang forever?",
+        "choices": ["<code>n--</code> can't be used in a loop", "The <code>;</code> after the condition is the loop's whole body, so <code>n</code> never changes", "<code>while</code> needs a <code>do</code>", "<code>n &gt; 0</code> is always false"],
+        "answer": 1, "explain": "The stray semicolon makes an empty loop body. If <code>n &gt; 0</code> is true initially, nothing inside the loop ever changes it." },
+      { "q": "In a <code>for</code> loop, what does <code>continue</code> do?",
+        "choices": ["Skips to the update expression and then the next condition check", "Exits the loop", "Restarts the loop from the initialise part", "Does nothing in a <code>for</code> loop"],
+        "answer": 0, "explain": "<code>continue</code> abandons the rest of the current body. In a <code>for</code> loop the update (e.g. <code>i++</code>) still runs before the condition is checked again." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
+</body>
+</html>

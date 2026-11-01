@@ -3,158 +3,548 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pointers and Functions</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Pointers &amp; Functions · Learn C</title>
+    <meta name="description" content="Pass-by-pointer, swap, output parameters, const pointer parameters, and returning pointers safely without dangling.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
 </head>
 <body>
-    <header>
-        <h1>Pointers and Functions in C</h1>
-        <a href="index.html">Back to Home</a>
-        <a href="introduction.html">Introduction</a>
-        <a href="pointer-arithmetic.html">Pointer Arithmetic</a>
-        <a href="pointers-and-arrays.html">Pointers and Arrays</a>
-        <a href="dynamic-memory-allocation.html">Dynamic Memory Allocation</a>
-    </header>
-    <main>
-        <section>
-            <h2>Understanding Pointers in Functions</h2>
-            <p>Pointers enable functions to modify variables directly, allowing for efficient memory usage and avoiding unnecessary copies, especially with large data structures.</p>
-            
-            <h3>Benefits of Using Pointers in Functions:</h3>
-            <ul>
-                <li>Modify original variables</li>
-                <li>Pass large structures efficiently</li>
-                <li>Implement callback functions</li>
-            </ul>
-        </section>
+<main>
+    <h1>Pointers &amp; Functions</h1>
+    <p class="lead">A function in C only ever gets copies of its arguments. Pointers are how you get around that: pass an address, and the function can reach back into the caller's memory. This lesson covers the patterns you'll use constantly, from the classic swap to output parameters, plus the one mistake every C programmer makes at least once: returning a pointer to something that no longer exists.</p>
 
-        <section>
-            <h3>Example: Modifying a Variable Through a Pointer</h3>
-            <pre><code>
-#include <stdio.h>
+    <h2>Recap: C passes by value</h2>
+    <p>Back in the Functions lesson you saw that a parameter is a brand-new local variable, initialised with a <em>copy</em> of the argument. Whatever the function does to that copy stays inside the function. Here's the consequence that motivates this whole lesson:</p>
 
-void increment(int *p) {
-    (*p)++; // Increment the value at the address pointed by p
-}
+    <script type="text/c">
+        #include <stdio.h>
 
-int main() {
-    int num = 5;
-    increment(&num); // Pass address of num
-    printf("Updated value: %d\n", num); // Output will be 6
-    return 0;
-}
-            </code></pre>
-            <p>In this example, the function <code>increment</code> takes a pointer to an integer. By passing the address of <code>num</code>, it modifies the variable directly.</p>
-        </section>
+        // Tries to swap... but only swaps its own copies.
+        void broken_swap(int a, int b) {
+            int tmp = a;
+            a = b;
+            b = tmp;
+            printf("inside:  a=%d b=%d\n", a, b);
+        }
 
-        <section>
-            <h3>Passing Arrays to Functions</h3>
-            <p>When arrays are passed into functions, they decay to pointers. This means the function can directly modify the elements of the array:</p>
-            <pre><code>
-#include <stdio.h>
+        int main(void) {
+            int x = 3;
+            int y = 7;
+            broken_swap(x, y);
+            printf("outside: x=%d y=%d\n", x, y);
+            return 0;
+        }
+    </script>
+    <p>Inside the function the swap worked. But <code>a</code> and <code>b</code> were copies of <code>x</code> and <code>y</code>, living in <code>broken_swap</code>'s own stack frame. When the function returned, that frame was thrown away, and <code>x</code> and <code>y</code> were never touched.</p>
 
-void modifyArray(int *arr, int size) {
-    for (int i = 0; i < size; i++) {
-        arr[i] += 10; // Increase each element by 10
-    }
-}
+    <h2>Swap, done right</h2>
+    <p>The fix is to pass the function the <strong>addresses</strong> of <code>x</code> and <code>y</code>. C still passes those addresses by value (the function gets copies of the pointers), but a copy of an address points at the same place as the original. Dereferencing it reaches the caller's variable.</p>
 
-int main() {
-    int myArray[5] = {1, 2, 3, 4, 5};
-    modifyArray(myArray, 5); // Pass array to the function
-    
-    for (int i = 0; i < 5; i++) {
-        printf("%d ", myArray[i]); // Outputs: 11 12 13 14 15
-    }
-    return 0;
-}
-            </code></pre>
-            <p>This allows direct manipulation of the array elements inside the function, demonstrating the power of pointers in C.</p>
-        </section>
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
 
-        <section>
-            <h3>Returning Pointers from Functions</h3>
-            <p>Functions can return pointers, but this needs to be done with caution, especially when returning addresses of local variables.</p>
-            <pre><code>
-#include <stdio.h>
-#include <stdlib.h>
+            void swap(int *a, int *b) {
+                int tmp = *a;
+                *a = *b;
+                *b = tmp;
+            }
 
-int* createArray(int size) {
-    return (int*)malloc(size * sizeof(int)); // Dynamically allocate array
-}
+            int main(void) {
+                int x = 3;
+                int y = 7;
+                swap(&x, &y);
+                printf("x=%d y=%d\n", x, y);
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "heap": false,
+          "steps": [
+            { "line": 9, "note": "<code>main</code> starts.", "stack": [{ "fn": "main", "vars": [] }] },
+            { "line": 10, "note": "<code>x</code> is created at <code>0x7ffc1c</code> holding 3.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc1c", "value": "3" }] }] },
+            { "line": 11, "note": "<code>y</code> is created at <code>0x7ffc18</code> holding 7.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc1c", "value": "3" }, { "name": "y", "type": "int", "addr": "0x7ffc18", "value": "7" }] }] },
+            { "line": 12, "note": "<code>swap(&amp;x, &amp;y)</code> passes two <em>addresses</em>. A new frame is pushed for <code>swap</code>, and its parameters <code>a</code> and <code>b</code> are initialised with copies of those addresses, so they point back into <code>main</code>'s frame.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc1c", "value": "3" }, { "name": "y", "type": "int", "addr": "0x7ffc18", "value": "7" }] },
+                        { "fn": "swap", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffbf8", "value": "0x7ffc1c", "ptr": "0x7ffc1c" }, { "name": "b", "type": "int *", "addr": "0x7ffbf0", "value": "0x7ffc18", "ptr": "0x7ffc18" }, { "name": "tmp", "type": "int", "addr": "0x7ffbec", "value": "?" }] }] },
+            { "line": 4, "note": "<code>int tmp = *a;</code> follows <code>a</code> to <code>x</code> and copies its value, 3, into <code>tmp</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc1c", "value": "3" }, { "name": "y", "type": "int", "addr": "0x7ffc18", "value": "7" }] },
+                        { "fn": "swap", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffbf8", "value": "0x7ffc1c", "ptr": "0x7ffc1c" }, { "name": "b", "type": "int *", "addr": "0x7ffbf0", "value": "0x7ffc18", "ptr": "0x7ffc18" }, { "name": "tmp", "type": "int", "addr": "0x7ffbec", "value": "3" }] }] },
+            { "line": 5, "note": "<code>*a = *b;</code> reads through <code>b</code> (7) and writes through <code>a</code>. The write lands in <code>main</code>'s <code>x</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc1c", "value": "7" }, { "name": "y", "type": "int", "addr": "0x7ffc18", "value": "7" }] },
+                        { "fn": "swap", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffbf8", "value": "0x7ffc1c", "ptr": "0x7ffc1c" }, { "name": "b", "type": "int *", "addr": "0x7ffbf0", "value": "0x7ffc18", "ptr": "0x7ffc18" }, { "name": "tmp", "type": "int", "addr": "0x7ffbec", "value": "3" }] }] },
+            { "line": 6, "note": "<code>*b = tmp;</code> writes 3 through <code>b</code> into <code>y</code>. Notice that <code>a</code> and <code>b</code> themselves never changed. Only what they point to did.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc1c", "value": "7" }, { "name": "y", "type": "int", "addr": "0x7ffc18", "value": "3" }] },
+                        { "fn": "swap", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffbf8", "value": "0x7ffc1c", "ptr": "0x7ffc1c" }, { "name": "b", "type": "int *", "addr": "0x7ffbf0", "value": "0x7ffc18", "ptr": "0x7ffc18" }, { "name": "tmp", "type": "int", "addr": "0x7ffbec", "value": "3" }] }] },
+            { "line": 7, "note": "<code>swap</code> returns. Its frame, with <code>a</code>, <code>b</code> and <code>tmp</code>, is gone, but the writes it made to <code>x</code> and <code>y</code> stay.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc1c", "value": "7" }, { "name": "y", "type": "int", "addr": "0x7ffc18", "value": "3" }] }] },
+            { "line": 13, "note": "The values really are swapped.", "output": "x=7 y=3",
+              "stack": [{ "fn": "main", "vars": [{ "name": "x", "type": "int", "addr": "0x7ffc1c", "value": "7" }, { "name": "y", "type": "int", "addr": "0x7ffc18", "value": "3" }] }] },
+            { "line": 15, "note": "<code>main</code> returns.", "output": "x=7 y=3", "stack": [] }
+          ]
+        }
+        </script>
+    </div>
 
-int main() {
-    int *arr = createArray(5); // Get pointer to dynamically allocated array
-    for (int i = 0; i < 5; i++) {
-        arr[i] = (i + 1) * 10; // Initialize
-        printf("%d ", arr[i]);
-    }
-    
-    free(arr); // Free allocated memory
-    return 0;
-}
-            </code></pre>
-            <p>In this example, the function <code>createArray</code> dynamically allocates memory for an array and returns a pointer to it. The caller is responsible for freeing the allocated memory to avoid leaks.</p>
-        </section>
+    <p>Three pieces have to line up for this to work:</p>
+    <ol>
+        <li>The <strong>parameter type</strong> is a pointer: <code>int *a</code>.</li>
+        <li>The <strong>caller passes an address</strong>: <code>swap(&amp;x, &amp;y)</code>.</li>
+        <li>The <strong>function dereferences</strong> to read and write: <code>*a = *b</code>.</li>
+    </ol>
+    <p>Forget the <code>*</code> inside the function and you'd be swapping the local pointer copies (which achieves nothing). Forget the <code>&amp;</code> at the call and the compiler complains that you passed an <code>int</code> where an <code>int *</code> was expected. Read that warning carefully: it's almost always this mistake.</p>
 
-        <section>
-            <h3>Memory Management Tips</h3>
-            <ul>
-                <li>Always check if memory allocation was successful by verifying that the returned pointer is not <code>NULL</code>.</li>
-                <li>After dynamically allocating memory, ensure you use <code>free</code>() to release the memory when it's no longer needed.</li>
-                <li>Never return a pointer to a local variable from a function as it will not exist after the function exits.</li>
-            </ul>
-        </section>
+    <div class="callout tip">
+        <span class="callout-title">You've been doing this since lesson 2</span>
+        <p><code>scanf("%d", &amp;n)</code> needs the <code>&amp;</code> for exactly this reason. <code>scanf</code> has to store a value into <em>your</em> variable, and the only way a C function can do that is if you hand it the variable's address. When you see <code>&amp;</code> at a call site, read it as "this function may change this variable".</p>
+    </div>
 
-        <section>
-            <h2>Quiz: Pointers and Functions</h2>
-            <div id="quiz">
-                <p>1. What is the primary benefit of passing a pointer to a function?</p>
-                <label for="q1">
-                    <input type="radio" name="q1" value="Can modify original variables"> Can modify original variables<br>
-                    <input type="radio" name="q1" value="Pass larger structures easily"> Pass larger structures easily<br>
-                    <input type="radio" name="q1" value="Both"> Both<br>
-                </label>
+    <h2>Output parameters: returning more than one value</h2>
+    <p>A C function can only <code>return</code> one value. When you need more, the standard trick is an <strong>output parameter</strong>: the caller passes the address of a variable, and the function fills it in.</p>
 
-                <p>2. If a function receives a pointer as a parameter, what can it do?</p>
-                <label for="q2">
-                    <input type="radio" name="q2" value="Only read the value"> Only read the value<br>
-                    <input type="radio" name="q2" value="Modify the variable"> Modify the variable<br>
-                    <input type="radio" name="q2" value="Nothing special"> Nothing special<br>
-                </label>
+    <script type="text/c">
+        #include <stdio.h>
 
-                <p>3. What happens when you pass an array to a function?</p>
-                <label for="q3">
-                    <input type="radio" name="q3" value="A copy of the array is passed"> A copy of the array is passed<br>
-                    <input type="radio" name="q3" value="The pointer to the first element is passed"> The pointer to the first element is passed<br>
-                    <input type="radio" name="q3" value="An error occurs"> An error occurs<br>
-                </label>
+        // Computes both results at once; writes them through the pointers.
+        void divmod(int dividend, int divisor, int *quotient, int *remainder) {
+            *quotient = dividend / divisor;
+            *remainder = dividend % divisor;
+        }
 
-                <p>4. How can you return a pointer from a function?</p>
-                <label for="q4">
-                    <input type="radio" name="q4" value="Directly from the function"> Directly from the function<br>
-                    <input type="radio" name="q4" value="Only if it is a local variable"> Only if it is a local variable<br>
-                    <input type="radio" name="q4" value="It is not possible"> It is not possible<br>
-                </label>
+        int main(void) {
+            int q, r;
+            divmod(17, 5, &q, &r);
+            printf("17 / 5 = %d remainder %d\n", q, r);
 
-                <p>5. What will happen if you decrement a pointer?</p>
-                <label for="q5">
-                    <input type="radio" name="q5" value="It moves to the previous memory location of the same type"> It moves to the previous memory location of the same type<br>
-                    <input type="radio" name="q5" value="It moves randomly"> It moves randomly<br>
-                    <input type="radio" name="q5" value="It stays in the same place"> It stays in the same place<br>
-                </label>
+            int hours, minutes;
+            divmod(135, 60, &hours, &minutes);
+            printf("135 minutes is %dh %02dm\n", hours, minutes);
+            return 0;
+        }
+    </script>
+    <p>Notice that <code>q</code> and <code>r</code> don't need initial values: <code>divmod</code> only writes to them. A good habit is to name output parameters clearly (<code>out_quotient</code>, <code>result</code>) and put them at the end of the parameter list, so callers can tell inputs from outputs at a glance.</p>
 
-                <br>
-                <button onclick="checkFunctionAnswers()">Submit Quiz</button>
-                <div id="result"></div>
-            </div>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2024 Pointers Course</p>
-    </footer>
-    <script src="script.js"></script>
+    <h3>The success-flag pattern</h3>
+    <p>A very common shape in C (and in <code>scanf</code> itself) is: <strong>return whether it worked, and deliver the actual result through a pointer</strong>. That separates "the answer" from "was there an answer?", which matters when every possible return value could be a legitimate result.</p>
+
+    <script type="text/c" data-stdin="84 7\n10 0\n-9 4">
+        #include <stdio.h>
+        #include <stdbool.h>
+
+        // Returns false (and leaves *result alone) if b is zero.
+        bool safe_divide(int a, int b, int *result) {
+            if (b == 0) {
+                return false;
+            }
+            *result = a / b;
+            return true;
+        }
+
+        int main(void) {
+            int a, b;
+            while (scanf("%d %d", &a, &b) == 2) {
+                int answer;
+                if (safe_divide(a, b, &answer)) {
+                    printf("%d / %d = %d\n", a, b, answer);
+                } else {
+                    printf("%d / %d: can't divide by zero\n", a, b);
+                }
+            }
+            return 0;
+        }
+    </script>
+    <p>Try editing the input. <code>scanf</code> follows the same pattern: it returns how many items it successfully converted, and writes the values through the pointers you gave it. That's why the loop checks <code>== 2</code>. (Integer division truncates towards zero in C, so <code>-9 / 4</code> is <code>-2</code>.)</p>
+
+    <div class="callout warn">
+        <span class="callout-title">What if the caller passes NULL?</span>
+        <p>Dereferencing a <code>NULL</code> output pointer is undefined behaviour (in practice, a crash). Some functions document "the pointer must not be NULL" and leave it to the caller; others check with <code>if (result != NULL)</code> and treat the output as optional. Either is fine, but decide, and write it in a comment above the function.</p>
+    </div>
+
+    <h2><code>const</code> pointers: "I promise only to look"</h2>
+    <p>Passing a pointer gives a function the <em>power</em> to modify your data, even when all it needs is to read it. For arrays you have no choice, since an array argument is always passed as a pointer. So C lets the function promise not to write: declare the parameter as a <strong>pointer to const</strong>.</p>
+
+    <script type="text/c">
+        #include <stdio.h>
+
+        double average(const int *values, int n) {
+            int total = 0;
+            for (int i = 0; i < n; i++) {
+                total += values[i];      // reading is fine
+            }
+            // values[0] = 0;            // would be a compile error: read-only
+            return (double)total / n;
+        }
+
+        int main(void) {
+            int scores[] = {72, 85, 91, 64};
+            printf("average: %.2f\n", average(scores, 4));
+            return 0;
+        }
+    </script>
+    <p>Read <code>const int *values</code> right to left: "<code>values</code> is a pointer to an <code>int</code> that is const". You can move the pointer, but you can't change the ints through it. This does two jobs:</p>
+    <ul>
+        <li><strong>It documents intent.</strong> A caller seeing <code>const int *</code> knows their array comes back untouched. Seeing plain <code>int *</code>, they should assume it might be modified.</li>
+        <li><strong>It catches bugs.</strong> If you accidentally write through the pointer, the compiler stops you.</li>
+    </ul>
+    <p>You can pass a plain <code>int *</code> to a <code>const int *</code> parameter freely (adding a promise is always safe). Going the other way, from <code>const int *</code> to <code>int *</code>, gets a warning, because it would throw the promise away. The standard library uses this everywhere: <code>size_t strlen(const char *s)</code> tells you <code>strlen</code> won't modify your string.</p>
+    <div class="callout tip">
+        <span class="callout-title">Where the const goes matters</span>
+        <p><code>const int *p</code> (pointer to const int) means you can't change <code>*p</code>. <code>int *const p</code> (const pointer to int) means you can't change <code>p</code> itself. For parameters you almost always want the first. Advanced Pointers covers all the combinations.</p>
+    </div>
+
+    <h2>Returning a pointer</h2>
+    <p>Functions can return pointers too. The single question to ask is: <strong>will the thing it points to still exist after the function returns?</strong> Here are the cases where the answer is yes.</p>
+
+    <h3>A pointer into the caller's data</h3>
+    <p>If the caller handed you an array, the array outlives your function, so pointing into it is safe. This is a great way to return "where" something is, and lets the caller modify it in place:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        // Returns a pointer to the largest element (n must be at least 1).
+        int *find_max(int *a, int n) {
+            int *best = a;
+            for (int i = 1; i < n; i++) {
+                if (a[i] > *best) {
+                    best = &a[i];
+                }
+            }
+            return best;
+        }
+
+        int main(void) {
+            int temps[] = {18, 25, 21, 30, 19};
+            int *hottest = find_max(temps, 5);
+
+            printf("max is %d at index %d\n", *hottest, (int)(hottest - temps));
+            *hottest = 0;                         // modify it through the pointer
+            printf("temps[3] is now %d\n", temps[3]);
+            return 0;
+        }
+    </script>
+    <p>Look at the standard library and you'll find many functions like this: <code>strchr(s, c)</code> returns a pointer to the first <code>c</code> in <code>s</code>, or <code>NULL</code> if there isn't one.</p>
+
+    <h3>A pointer to <code>static</code> data</h3>
+    <p>A local variable declared <code>static</code> isn't stored in the function's frame. It's created once, before the program starts, and lives until the program ends. Returning its address is legal. String literals are static too, so returning one is fine:</p>
+    <script type="text/c">
+        #include <stdio.h>
+
+        const char *grade_name(int score) {
+            if (score >= 90) return "excellent";   // string literals live forever
+            if (score >= 50) return "pass";
+            return "fail";
+        }
+
+        const char *format_seconds(int total) {
+            static char buf[32];                    // one buffer, reused on every call
+            snprintf(buf, sizeof buf, "%d:%02d", total / 60, total % 60);
+            return buf;
+        }
+
+        int main(void) {
+            printf("%s\n", grade_name(93));
+            printf("%s\n", format_seconds(125));
+            printf("%s\n", format_seconds(59));
+            return 0;
+        }
+    </script>
+    <p>The catch with a static buffer is that there's only one of it: every call overwrites the previous result. <code>printf("%s %s", format_seconds(1), format_seconds(2))</code> prints the same text twice. Use the result before calling again (or copy it).</p>
+
+    <h3>A pointer to heap memory (preview)</h3>
+    <p>The most flexible option is to allocate memory that has no automatic lifetime at all, with <code>malloc</code>. It lives until someone explicitly calls <code>free</code>. That's the whole of the next lesson, so here's just a taste:</p>
+    <script type="text/c">
+        #include <stdio.h>
+        #include <stdlib.h>
+
+        // Returns a new array of n squares. The CALLER must free it.
+        int *make_squares(int n) {
+            int *a = malloc(n * sizeof *a);
+            if (a == NULL) {
+                return NULL;
+            }
+            for (int i = 0; i < n; i++) {
+                a[i] = i * i;
+            }
+            return a;
+        }
+
+        int main(void) {
+            int *sq = make_squares(6);
+            if (sq == NULL) {
+                return 1;
+            }
+            for (int i = 0; i < 6; i++) {
+                printf("%d ", sq[i]);
+            }
+            printf("\n");
+            free(sq);
+            return 0;
+        }
+    </script>
+
+    <h3>Never: a pointer to a local variable</h3>
+    <div class="callout danger">
+        <span class="callout-title">Dangling pointer to a local</span>
+        <p>A function's ordinary local variables live in its stack frame, and the frame is destroyed the moment the function returns. A pointer to one of them is left pointing at memory that no longer belongs to anything: a <strong>dangling pointer</strong>. Using it is undefined behaviour.</p>
+        <script type="text/c" data-static>
+            int *make_number(void) {
+                int n = 42;
+                return &n;     // BUG: n dies when make_number returns
+            }
+
+            int main(void) {
+                int *p = make_number();
+                printf("%d\n", *p);   // undefined behaviour
+                return 0;
+            }
+        </script>
+    </div>
+    <p>The nasty thing about this bug is that it often <em>seems</em> to work. The bytes where <code>n</code> lived usually still hold 42 right after the return, because nothing has overwritten them yet. Call another function (even <code>printf</code>) and that stack space gets reused, and the value changes underneath you. Some compilers, knowing it's UB, simply return <code>NULL</code> instead, turning it into a crash.</p>
+    <p>Fortunately, the compiler catches the obvious version (GCC and Clang warn about it by default, even without <code>-Wall</code>). GCC says <em>"function returns address of local variable"</em> and Clang says <em>"address of stack memory associated with local variable 'n' returned"</em>. Treat that warning as an error, every time. But the compiler can't catch every disguise: <code>int *p = &amp;n; return p;</code> may slip through without a warning, so the real defence is asking the lifetime question above.</p>
+    <p>The same applies to local <em>arrays</em>, which is the version beginners hit most often:</p>
+    <script type="text/c" data-static>
+        char *make_greeting(const char *name) {
+            char buf[64];
+            snprintf(buf, sizeof buf, "Hello, %s!", name);
+            return buf;    // BUG: buf decays to a pointer into a dead frame
+        }
+    </script>
+    <p>To fix it, either let the caller supply the buffer (<code>void make_greeting(char *out, size_t size, const char *name)</code>, the pattern used by <code>snprintf</code> and <code>fgets</code>), make the buffer <code>static</code> with the caveats above, or <code>malloc</code> it and make the caller <code>free</code> it.</p>
+
+    <table>
+        <thead><tr><th>Returning a pointer to…</th><th>Safe?</th><th>Why</th></tr></thead>
+        <tbody>
+            <tr><td>an element of an array the caller passed in</td><td>Yes</td><td>the caller's array still exists</td></tr>
+            <tr><td>a string literal or a <code>static</code> variable</td><td>Yes</td><td>static storage lives for the whole program</td></tr>
+            <tr><td>memory from <code>malloc</code></td><td>Yes</td><td>lives until <code>free</code>; the caller must free it</td></tr>
+            <tr><td>an ordinary local variable or array</td><td><strong>No</strong></td><td>destroyed when the function returns</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Looking ahead: big things go by pointer</h2>
+    <p>There's one more reason to pass pointers that you'll meet in the Structs lesson. Passing by value copies the argument, which is nothing for an <code>int</code> but can be a lot of bytes for a large struct. So C programmers routinely pass structs as <code>const struct Thing *</code> even when the function only reads them: you get the efficiency of passing one address, and the <code>const</code> keeps the safety of a copy.</p>
+
+    <h2>Exercises</h2>
+
+    <div class="exercise" data-id="pf-sort3">
+        <h3>Sort three variables</h3>
+        <p>Write <code>order(int *a, int *b)</code>, which swaps the two values if <code>*a &gt; *b</code>, so that afterwards <code>*a &lt;= *b</code>. Then complete <code>sort3</code> using only calls to <code>order</code> so that <code>x &lt;= y &lt;= z</code>.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            void order(int *a, int *b) {
+                // TODO: swap *a and *b if they're the wrong way round
+            }
+
+            void sort3(int *x, int *y, int *z) {
+                // TODO: three calls to order() are enough
+            }
+
+            int main(void) {
+                int x = 9, y = 2, z = 5;
+                sort3(&x, &y, &z);
+                printf("%d %d %d\n", x, y, z);
+
+                int p = 1, q = 3, r = -4;
+                sort3(&p, &q, &r);
+                printf("%d %d %d\n", p, q, r);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            2 5 9
+            -4 1 3
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            void order(int *a, int *b) {
+                if (*a > *b) {
+                    int tmp = *a;
+                    *a = *b;
+                    *b = tmp;
+                }
+            }
+
+            void sort3(int *x, int *y, int *z) {
+                order(x, y);
+                order(y, z);
+                order(x, y);
+            }
+
+            int main(void) {
+                int x = 9, y = 2, z = 5;
+                sort3(&x, &y, &z);
+                printf("%d %d %d\n", x, y, z);
+
+                int p = 1, q = 3, r = -4;
+                sort3(&p, &q, &r);
+                printf("%d %d %d\n", p, q, r);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Inside <code>sort3</code>, <code>x</code>, <code>y</code> and <code>z</code> are already pointers, so pass them straight on: <code>order(x, y)</code>, no <code>&amp;</code>. Order <code>x,y</code>, then <code>y,z</code> (the largest is now in <code>z</code>), then <code>x,y</code> again.</p></details>
+    </div>
+
+    <div class="exercise" data-id="pf-min-max">
+        <h3>Min and max in one pass</h3>
+        <p>Write <code>min_max</code>, which takes a read-only array and its length (at least 1) and reports both the smallest and largest values through the output parameters <code>out_min</code> and <code>out_max</code>.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            void min_max(const int *a, int n, int *out_min, int *out_max) {
+                // TODO
+            }
+
+            int main(void) {
+                int data[] = {14, -3, 27, 8, 0, 27, -11, 5};
+                int lo, hi;
+                min_max(data, 8, &lo, &hi);
+                printf("min=%d max=%d\n", lo, hi);
+
+                int one[] = {42};
+                min_max(one, 1, &lo, &hi);
+                printf("min=%d max=%d\n", lo, hi);
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            min=-11 max=27
+            min=42 max=42
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            void min_max(const int *a, int n, int *out_min, int *out_max) {
+                int lo = a[0];
+                int hi = a[0];
+                for (int i = 1; i < n; i++) {
+                    if (a[i] < lo) lo = a[i];
+                    if (a[i] > hi) hi = a[i];
+                }
+                *out_min = lo;
+                *out_max = hi;
+            }
+
+            int main(void) {
+                int data[] = {14, -3, 27, 8, 0, 27, -11, 5};
+                int lo, hi;
+                min_max(data, 8, &lo, &hi);
+                printf("min=%d max=%d\n", lo, hi);
+
+                int one[] = {42};
+                min_max(one, 1, &lo, &hi);
+                printf("min=%d max=%d\n", lo, hi);
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Start both <code>lo</code> and <code>hi</code> at <code>a[0]</code> (not at 0, or an all-positive or all-negative array goes wrong), loop from index 1, and at the end write <code>*out_min = lo;</code> and <code>*out_max = hi;</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="pf-find-first" data-stdin="4 15 8 16 23 42 8\n8">
+        <h3>Find and replace through a returned pointer</h3>
+        <p>The program reads 7 numbers into an array and then a target value. Write <code>find_first</code>, which returns a pointer to the first element equal to <code>target</code>, or <code>NULL</code> if there isn't one. <code>main</code> uses it to replace the first match with <code>-1</code>, so with the given input it prints <code>found at index 2</code> and then the updated array.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int *find_first(int *a, int n, int target) {
+                // TODO: return &a[i] for the first match, or NULL
+                return NULL;
+            }
+
+            int main(void) {
+                int a[7];
+                for (int i = 0; i < 7; i++) {
+                    if (scanf("%d", &a[i]) != 1) return 1;
+                }
+                int target;
+                if (scanf("%d", &target) != 1) return 1;
+
+                int *hit = find_first(a, 7, target);
+                if (hit == NULL) {
+                    printf("not found\n");
+                } else {
+                    printf("found at index %d\n", (int)(hit - a));
+                    *hit = -1;
+                }
+                for (int i = 0; i < 7; i++) {
+                    printf("%d ", a[i]);
+                }
+                printf("\n");
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            found at index 2
+            4 15 -1 16 23 42 8
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int *find_first(int *a, int n, int target) {
+                for (int i = 0; i < n; i++) {
+                    if (a[i] == target) {
+                        return &a[i];
+                    }
+                }
+                return NULL;
+            }
+
+            int main(void) {
+                int a[7];
+                for (int i = 0; i < 7; i++) {
+                    if (scanf("%d", &a[i]) != 1) return 1;
+                }
+                int target;
+                if (scanf("%d", &target) != 1) return 1;
+
+                int *hit = find_first(a, 7, target);
+                if (hit == NULL) {
+                    printf("not found\n");
+                } else {
+                    printf("found at index %d\n", (int)(hit - a));
+                    *hit = -1;
+                }
+                for (int i = 0; i < 7; i++) {
+                    printf("%d ", a[i]);
+                }
+                printf("\n");
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Loop over the array; as soon as <code>a[i] == target</code>, <code>return &amp;a[i];</code> (or <code>a + i</code>). If the loop finishes, <code>return NULL;</code>. Returning a pointer into <code>a</code> is safe because the array belongs to <code>main</code>.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "What does this print?", "type": "output",
+        "code": "void bump(int n) { n = n + 1; }\n\nint main(void) {\n    int x = 5;\n    bump(x);\n    printf(\"%d\", x);\n    return 0;\n}",
+        "answer": "5", "explain": "<code>bump</code> gets a copy of <code>x</code>. Incrementing the copy has no effect on <code>main</code>'s <code>x</code>." },
+      { "q": "Given <code>void set_zero(int *p) { *p = 0; }</code> and <code>int n = 9;</code>, which call sets <code>n</code> to 0?",
+        "choices": ["<code>set_zero(n);</code>", "<code>set_zero(*n);</code>", "<code>set_zero(&amp;n);</code>", "<code>set_zero(&amp;*n);</code>"],
+        "answer": 2, "explain": "The function needs the address of <code>n</code>, which is <code>&amp;n</code>. Passing <code>n</code> itself would hand it an <code>int</code> where a pointer is expected." },
+      { "q": "What does this print?", "type": "output",
+        "code": "void step(int *a, int b) {\n    *a = *a + b;\n    b = 0;\n}\n\nint main(void) {\n    int x = 2, y = 3;\n    step(&x, y);\n    step(&x, y);\n    printf(\"%d %d\", x, y);\n    return 0;\n}",
+        "answer": "8 3", "explain": "<code>x</code> is passed by address, so both calls add 3 to it: 2 → 5 → 8. <code>y</code> is passed by value; setting the copy <code>b</code> to 0 doesn't affect it." },
+      { "q": "A function is declared <code>int total(const int *a, int n);</code>. What does the <code>const</code> tell you?",
+        "choices": ["<code>total</code> won't modify the ints that <code>a</code> points to", "The array must be declared <code>const</code> by the caller", "<code>n</code> can't change inside the function", "The returned value is constant"],
+        "answer": 0, "explain": "<code>const int *</code> is a pointer to read-only ints. Callers can pass an ordinary <code>int</code> array; the function simply promises (and the compiler enforces) that it won't write through <code>a</code>." },
+      { "q": "Which of these functions returns a pointer that is <strong>unsafe</strong> to use after the call?",
+        "choices": ["<code>int *f(int *a) { return &amp;a[2]; }</code>", "<code>const char *f(void) { return \"ok\"; }</code>", "<code>int *f(void) { static int n = 1; return &amp;n; }</code>", "<code>int *f(void) { int n = 1; return &amp;n; }</code>"],
+        "answer": 3, "explain": "<code>n</code> in the last one is an ordinary local: it's destroyed when <code>f</code> returns, leaving a dangling pointer. The others point into the caller's array, a string literal, or a static variable, all of which outlive the call." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int *pick(int *a, int *b) {\n    return (*a < *b) ? a : b;\n}\n\nint main(void) {\n    int x = 4, y = 9;\n    *pick(&x, &y) = 100;\n    printf(\"%d %d\", x, y);\n    return 0;\n}",
+        "answer": "100 9", "explain": "<code>pick</code> returns a pointer to the smaller value, which is <code>x</code>. Assigning through that pointer sets <code>x</code> to 100." },
+      { "q": "Why does <code>scanf(\"%d\", &amp;n)</code> need the <code>&amp;</code>?",
+        "choices": ["It tells <code>scanf</code> the type of <code>n</code>", "<code>scanf</code> must write into <code>n</code>, and a function can only do that through its address", "It's optional, but faster", "It makes <code>n</code> a pointer permanently"],
+        "answer": 1, "explain": "C passes arguments by value. Without the address, <code>scanf</code> would only get a copy of <code>n</code>'s current value and couldn't store the input anywhere useful." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
 </body>
 </html>
-
-            

@@ -3,83 +3,496 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pointers and Arrays</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Pointers &amp; Arrays · Learn C</title>
+    <meta name="description" content="Array-to-pointer decay, why a[i] means *(a + i), where arrays and pointers differ, and passing arrays and strings to functions.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/course.css">
 </head>
 <body>
-    <header>
-        <h1>Pointers and Arrays in C</h1>
-        <a href="index.html">Back to Home</a>
-        <a href="introduction.html">Introduction</a>
-        <a href="pointer-arithmetic.html">Pointer Arithmetic</a>
-    </header>
-    <main>
-        <section>
-            <h2>Understanding Arrays and Pointers</h2>
-            <p>In C, an array is a collection of elements of the same type stored in contiguous memory locations. Pointers can be used to point to the first element of an array.</p>
-            <h3>Example of Array and Pointer Usage:</h3>
-            <pre><code>
-#include &lt;stdio.h&gt;
+<main>
+    <h1>Pointers &amp; Arrays</h1>
+    <p class="lead">Arrays and pointers are so closely linked in C that people often say "an array is just a pointer". That's not quite true, and the places where it's <em>not</em> true are exactly where bugs hide. This lesson shows you how the two really relate, so array code, string code and function parameters all start making sense.</p>
 
-int main() {
-    int arr[5] = {10, 20, 30, 40, 50};
-    int *p = arr; // Pointer to the first element of the array
+    <h2>An array name turns into a pointer</h2>
+    <p>In the last lesson you used pointer arithmetic to walk through memory. Arrays are where that pays off, because of one rule:</p>
+    <div class="callout tip">
+        <span class="callout-title">The decay rule</span>
+        <p>In almost every expression, an array's name is automatically converted to a <strong>pointer to its first element</strong>. For <code>int a[5]</code>, using <code>a</code> gives you an <code>int *</code> equal to <code>&amp;a[0]</code>. This conversion is called <strong>array-to-pointer decay</strong>.</p>
+    </div>
+    <p>That's why you can assign an array to a pointer without writing <code>&amp;</code>:</p>
 
-    for (int i = 0; i < 5; i++) {
-        printf("Value at arr[%d] = %d\n", i, *(p + i)); // Accessing array using pointer
-    }
-    return 0;
-}
-            </code></pre>
-        </section>
+    <script type="text/c">
+        #include <stdio.h>
 
-        <section>
-            <h2>Quiz: Pointers and Arrays</h2>
-            <div id="quiz">
-                <p>1. How do you access an array element using a pointer?</p>
-                <label for="q1">
-                    <input type="radio" name="q1" value="Using index notation"> Using index notation<br>
-                    <input type="radio" name="q1" value="Pointer arithmetic"> Pointer arithmetic<br>
-                    <input type="radio" name="q1" value="Both"> Both<br>
-                </label>
+        int main(void) {
+            int a[5] = {10, 20, 30, 40, 50};
+            int *p = a;          // same as: int *p = &a[0];
 
-                <p>2. What does the following code do: <code>p = &arr[0];</code>?</p>
-                <label for="q2">
-                    <input type="radio" name="q2" value="Points to the first element"> Points to the first element<br>
-                    <input type="radio" name="q2" value="Points to the last element"> Points to the last element<br>
-                    <input type="radio" name="q2" value="Points to the size of the array"> Points to the size of the array<br>
-                </label>
+            printf("a     = %p\n", (void *)a);
+            printf("&a[0] = %p\n", (void *)&a[0]);
+            printf("p     = %p\n", (void *)p);
 
-                <p>3. What type is the expression <code>sizeof(arr)</code> where <code>arr</code> is an array?</p>
-                <label for="q3">
-                    <input type="radio" name="q3" value="Size of the whole array"> Size of the whole array<br>
-                    <input type="radio" name="q3" value="Size of the first element"> Size of the first element<br>
-                    <input type="radio" name="q3" value="Size of a pointer"> Size of a pointer<br>
-                </label>
+            printf("*p = %d, p[2] = %d\n", *p, p[2]);
+            return 0;
+        }
+    </script>
+    <p>All three addresses are the same. And notice <code>p[2]</code>: you can use square brackets on a pointer, not just on an array. That's not a special convenience; it's how square brackets are actually defined.</p>
 
-                <p>4. When passing an array to a function, what is actually passed?</p>
-                <label for="q4">
-                    <input type="radio" name="q4" value="Entire array"> Entire array<br>
-                    <input type="radio" name="q4" value="Pointer to the first element"> Pointer to the first element<br>
-                    <input type="radio" name="q4" value="The length of the array"> The length of the array<br>
-                </label>
+    <h2><code>a[i]</code> is really <code>*(a + i)</code></h2>
+    <p>The C standard defines the subscript operator in terms of pointer arithmetic. <code>E1[E2]</code> means exactly <code>*((E1) + (E2))</code>. So when you write <code>a[3]</code>:</p>
+    <ol>
+        <li><code>a</code> decays to a pointer to <code>a[0]</code>.</li>
+        <li><code>a + 3</code> moves forward 3 <em>elements</em> (12 bytes for 4-byte ints), as you learned in Pointer Arithmetic.</li>
+        <li><code>*</code> reads the <code>int</code> at that address.</li>
+    </ol>
 
-				<p>5. Which of the following statement is correct?</p>
-                <label for="q5">
-                    <input type="radio" name="q5" value="Array name is a pointer"> Array name is a pointer<br>
-                    <input type="radio" name="q5" value="Pointer arithmetic can be used with arrays"> Pointer arithmetic can be used with arrays<br>
-                    <input type="radio" name="q5" value="Both"> Both<br>
-                </label>
+    <script type="text/c">
+        #include <stdio.h>
 
-				<br>
-                <button onclick="checkArrayAnswers()">Submit Quiz</button>
-                <div id="result"></div>
-            </div>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2024 Pointers Course - James Kelly</p>
-    </footer>
-    <script src="script.js"></script>
+        int main(void) {
+            int a[4] = {7, 14, 21, 28};
+
+            for (int i = 0; i < 4; i++) {
+                printf("a[%d] = %d   *(a + %d) = %d\n", i, a[i], i, *(a + i));
+            }
+
+            // Addition is commutative, so *(a + 2) == *(2 + a) == 2[a]
+            printf("2[a] = %d\n", 2[a]);
+            return 0;
+        }
+    </script>
+    <p>Yes, <code>2[a]</code> compiles and means the same as <code>a[2]</code>, because <code>*(2 + a)</code> is the same as <code>*(a + 2)</code>. It's a fun piece of trivia that proves the definition, but never write it in real code.</p>
+    <p>This also explains why arrays start at index 0: <code>a[0]</code> is <code>*(a + 0)</code>, the element right at the start. An index is really an <em>offset</em> from the beginning.</p>
+
+    <div class="callout warn">
+        <span class="callout-title">No bounds checking, ever</span>
+        <p>Because <code>a[i]</code> is just "add and dereference", C never checks that <code>i</code> is in range. <code>a[10]</code> on a 4-element array computes an address past the end and reads whatever is there. That's <strong>undefined behaviour</strong>: it might print garbage, crash, or quietly work until the day it doesn't.</p>
+    </div>
+
+    <h2>Where arrays and pointers differ</h2>
+    <p>Decay happens "in almost every expression". The exceptions are what make an array more than a pointer. An array is a block of elements; a pointer is a single variable holding one address. The difference shows up in three places.</p>
+
+    <h3>1. <code>sizeof</code> sees the whole array</h3>
+    <p>When an array is the operand of <code>sizeof</code>, it does <strong>not</strong> decay. You get the size of the entire block. A pointer is always just the size of an address (8 bytes on typical 64-bit systems), no matter what it points to.</p>
+
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int a[5] = {1, 2, 3, 4, 5};
+            int *p = a;
+
+            printf("sizeof a    = %zu\n", sizeof a);      // 5 * sizeof(int)
+            printf("sizeof p    = %zu\n", sizeof p);      // size of an address
+            printf("sizeof a[0] = %zu\n", sizeof a[0]);
+
+            size_t n = sizeof a / sizeof a[0];
+            printf("a has %zu elements\n", n);
+            return 0;
+        }
+    </script>
+    <p>The <code>sizeof a / sizeof a[0]</code> trick for counting elements only works on a real array, in the scope where it was declared. Use it on a pointer and you get <code>8 / 4 = 2</code>, which is nonsense. You'll see shortly why that matters for functions.</p>
+
+    <h3>2. You can't assign to an array</h3>
+    <p>A pointer variable can be pointed somewhere else. An array name can't: the array <em>is</em> its storage, so there's nothing to re-point.</p>
+    <script type="text/c" data-static>
+        int a[3] = {1, 2, 3};
+        int b[3] = {4, 5, 6};
+        int *p = a;
+
+        p = b;      // fine: p now points at b[0]
+        p++;        // fine: p now points at b[1]
+        a = b;      // ERROR: assignment to expression with array type
+        a++;        // ERROR: same reason
+    </script>
+    <p>To copy one array into another you copy the elements, with a loop or <code>memcpy</code> from <code>&lt;string.h&gt;</code>.</p>
+
+    <h3>3. <code>&amp;a</code> is a pointer to the whole array</h3>
+    <p>The other place decay doesn't happen is under <code>&amp;</code>. <code>&amp;a</code> gives the address of the array <em>as a whole</em>, and its type is <code>int (*)[5]</code>: "pointer to an array of 5 ints". It has the same address as <code>&amp;a[0]</code>, but a different type, and the type changes what <code>+ 1</code> does:</p>
+
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int a[5] = {0};
+
+            printf("a      = %p\n", (void *)a);
+            printf("a + 1  = %p   (moved by one int)\n", (void *)(a + 1));
+            printf("&a     = %p\n", (void *)&a);
+            printf("&a + 1 = %p   (moved by the whole array)\n", (void *)(&a + 1));
+            return 0;
+        }
+    </script>
+    <p>Look at the last hex digits: <code>a + 1</code> is 4 bytes along, while <code>&amp;a + 1</code> is 20 bytes along (<code>0x14</code> in hex), one whole <code>int[5]</code>. You'll rarely need <code>int (*)[5]</code> yourself, but it explains a confusing compiler message if you ever write <code>int *p = &amp;a;</code> by mistake (just write <code>int *p = a;</code>).</p>
+
+    <table>
+        <thead><tr><th>Expression (for <code>int a[5]</code>)</th><th>Type</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td><code>a</code> (in most expressions)</td><td><code>int *</code></td><td>address of <code>a[0]</code></td></tr>
+            <tr><td><code>&amp;a[0]</code></td><td><code>int *</code></td><td>address of <code>a[0]</code></td></tr>
+            <tr><td><code>&amp;a</code></td><td><code>int (*)[5]</code></td><td>address of the whole array (same number, different type)</td></tr>
+            <tr><td><code>sizeof a</code></td><td><code>size_t</code></td><td>20 with 4-byte ints: the whole array</td></tr>
+            <tr><td><code>*a</code></td><td><code>int</code></td><td>the value of <code>a[0]</code></td></tr>
+        </tbody>
+    </table>
+
+    <h2>Passing arrays to functions</h2>
+    <p>In the Functions lesson you learned that C passes arguments <strong>by value</strong>: the function gets a copy. So what happens when you pass an array? The array name decays, so what gets copied is <em>the pointer</em>, not the elements. The function receives the address of the caller's first element.</p>
+    <p>C even rewrites the parameter declaration for you. These three prototypes are <strong>identical</strong>:</p>
+    <script type="text/c" data-static>
+        void fill(int a[10], int n);   // the 10 is ignored!
+        void fill(int a[],   int n);
+        void fill(int *a,    int n);   // what all three really mean
+    </script>
+    <p>Two consequences follow:</p>
+    <ul>
+        <li><strong>The function can change the caller's array.</strong> It has the address of the real elements, not a copy of them.</li>
+        <li><strong>The function has no idea how long the array is.</strong> It only has a pointer. You must pass the length separately.</li>
+    </ul>
+    <p>Step through this and watch the arrow from <code>a</code> in <code>double_all</code>'s frame into <code>main</code>'s array:</p>
+
+    <div class="memviz">
+        <script type="text/c">
+            #include <stdio.h>
+
+            void double_all(int a[], int n) {
+                for (int i = 0; i < n; i++) {
+                    a[i] = a[i] * 2;
+                }
+            }
+
+            int main(void) {
+                int nums[3] = {5, 8, 2};
+                double_all(nums, 3);
+                printf("%d %d %d\n", nums[0], nums[1], nums[2]);
+                return 0;
+            }
+        </script>
+        <script type="application/json">
+        {
+          "heap": false,
+          "steps": [
+            { "line": 9, "note": "The program starts in <code>main</code>.", "stack": [{ "fn": "main", "vars": [] }] },
+            { "line": 10, "note": "<code>nums</code> is three ints side by side, 4 bytes apart, starting at <code>0x7ffc20</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "nums", "type": "int[3]", "cells": [{ "addr": "0x7ffc20", "value": "5" }, { "addr": "0x7ffc24", "value": "8" }, { "addr": "0x7ffc28", "value": "2" }] }] }] },
+            { "line": 11, "note": "Calling <code>double_all(nums, 3)</code>: <code>nums</code> decays to <code>&amp;nums[0]</code>, and that <em>address</em> is copied into the parameter <code>a</code>. Even though it was written <code>int a[]</code>, <code>a</code> is an <code>int *</code>. The elements themselves are not copied.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "nums", "type": "int[3]", "cells": [{ "addr": "0x7ffc20", "value": "5" }, { "addr": "0x7ffc24", "value": "8" }, { "addr": "0x7ffc28", "value": "2" }] }] },
+                        { "fn": "double_all", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffbf8", "value": "0x7ffc20", "ptr": "0x7ffc20" }, { "name": "n", "type": "int", "addr": "0x7ffbf4", "value": "3" }] }] },
+            { "line": 4, "note": "The loop starts with <code>i = 0</code>.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "nums", "type": "int[3]", "cells": [{ "addr": "0x7ffc20", "value": "5" }, { "addr": "0x7ffc24", "value": "8" }, { "addr": "0x7ffc28", "value": "2" }] }] },
+                        { "fn": "double_all", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffbf8", "value": "0x7ffc20", "ptr": "0x7ffc20" }, { "name": "n", "type": "int", "addr": "0x7ffbf4", "value": "3" }, { "name": "i", "type": "int", "addr": "0x7ffbf0", "value": "0" }] }] },
+            { "line": 5, "note": "<code>a[0]</code> is <code>*(a + 0)</code>: follow the arrow to <code>0x7ffc20</code>. That's <code>nums[0]</code> in <code>main</code>'s frame, and it becomes 10.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "nums", "type": "int[3]", "cells": [{ "addr": "0x7ffc20", "value": "10" }, { "addr": "0x7ffc24", "value": "8" }, { "addr": "0x7ffc28", "value": "2" }] }] },
+                        { "fn": "double_all", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffbf8", "value": "0x7ffc20", "ptr": "0x7ffc20" }, { "name": "n", "type": "int", "addr": "0x7ffbf4", "value": "3" }, { "name": "i", "type": "int", "addr": "0x7ffbf0", "value": "0" }] }] },
+            { "line": 5, "note": "<code>i = 1</code>: <code>a + 1</code> is <code>0x7ffc24</code>, so <code>nums[1]</code> becomes 16. Note that <code>a</code> itself never changes.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "nums", "type": "int[3]", "cells": [{ "addr": "0x7ffc20", "value": "10" }, { "addr": "0x7ffc24", "value": "16" }, { "addr": "0x7ffc28", "value": "2" }] }] },
+                        { "fn": "double_all", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffbf8", "value": "0x7ffc20", "ptr": "0x7ffc20" }, { "name": "n", "type": "int", "addr": "0x7ffbf4", "value": "3" }, { "name": "i", "type": "int", "addr": "0x7ffbf0", "value": "1" }] }] },
+            { "line": 5, "note": "<code>i = 2</code>: <code>a + 2</code> is <code>0x7ffc28</code>, so <code>nums[2]</code> becomes 4. Next, <code>i</code> becomes 3, and <code>3 &lt; n</code> is false, so the loop ends.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "nums", "type": "int[3]", "cells": [{ "addr": "0x7ffc20", "value": "10" }, { "addr": "0x7ffc24", "value": "16" }, { "addr": "0x7ffc28", "value": "4" }] }] },
+                        { "fn": "double_all", "vars": [{ "name": "a", "type": "int *", "addr": "0x7ffbf8", "value": "0x7ffc20", "ptr": "0x7ffc20" }, { "name": "n", "type": "int", "addr": "0x7ffbf4", "value": "3" }, { "name": "i", "type": "int", "addr": "0x7ffbf0", "value": "2" }] }] },
+            { "line": 7, "note": "<code>double_all</code> returns and its frame (the pointer <code>a</code>, <code>n</code> and <code>i</code>) is destroyed. The changes it made live on, because they were made to <code>main</code>'s memory.",
+              "stack": [{ "fn": "main", "vars": [{ "name": "nums", "type": "int[3]", "cells": [{ "addr": "0x7ffc20", "value": "10" }, { "addr": "0x7ffc24", "value": "16" }, { "addr": "0x7ffc28", "value": "4" }] }] }] },
+            { "line": 12, "note": "<code>main</code> sees the doubled values.", "output": "10 16 4",
+              "stack": [{ "fn": "main", "vars": [{ "name": "nums", "type": "int[3]", "cells": [{ "addr": "0x7ffc20", "value": "10" }, { "addr": "0x7ffc24", "value": "16" }, { "addr": "0x7ffc28", "value": "4" }] }] }] },
+            { "line": 14, "note": "<code>main</code> returns.", "output": "10 16 4", "stack": [] }
+          ]
+        }
+        </script>
+    </div>
+
+    <h3>Why <code>sizeof</code> lies inside a function</h3>
+    <p>Since the parameter is a pointer, <code>sizeof</code> on it gives the size of a pointer, not of the array. This is one of the most common beginner bugs in C:</p>
+    <script type="text/c" data-static>
+        void print_all(int a[]) {
+            // BUG: a is an int *, so this is sizeof(int *) / sizeof(int),
+            // which is 8 / 4 = 2 on a typical 64-bit system, whatever you pass.
+            int n = sizeof a / sizeof a[0];
+            for (int i = 0; i < n; i++) {
+                printf("%d\n", a[i]);
+            }
+        }
+    </script>
+    <p>Good compilers warn about this (<em>"sizeof on array function parameter will return size of 'int *'"</em>). The fix is the convention you'll see all over C, including the standard library: <strong>pass the length as a separate parameter</strong>, and compute it with <code>sizeof</code> in the caller, where the array is still a real array.</p>
+
+    <script type="text/c">
+        #include <stdio.h>
+
+        void print_all(const int *a, size_t n) {
+            for (size_t i = 0; i < n; i++) {
+                printf("%d ", a[i]);
+            }
+            printf("\n");
+        }
+
+        int main(void) {
+            int primes[] = {2, 3, 5, 7, 11, 13};
+            size_t n = sizeof primes / sizeof primes[0];   // 6: primes is a real array here
+
+            print_all(primes, n);
+            print_all(primes + 2, 3);   // a pointer into the middle works too: prints 5 7 11
+            return 0;
+        }
+    </script>
+    <p>Two things to notice. First, the <code>const</code> in <code>const int *a</code> promises that <code>print_all</code> only reads the array; the compiler will stop it from writing <code>a[i] = …</code>. You'll use this a lot in the next lesson. Second, because a function only ever sees a pointer and a length, you can hand it <em>part</em> of an array, like <code>primes + 2</code>.</p>
+
+    <div class="callout tip">
+        <span class="callout-title">2D arrays decay too</span>
+        <p>A 2D array <code>int grid[3][4]</code> is an array of 3 rows, each an <code>int[4]</code>. It decays to a pointer to its first row, of type <code>int (*)[4]</code>. That's why a function taking a 2D array must spell out every dimension except the first: <code>void show(int grid[][4], int rows)</code>. The compiler needs the row length to compute <code>grid[r][c]</code>.</p>
+    </div>
+
+    <h2>Walking an array: index vs pointer</h2>
+    <p>There are two common styles for looping over an array. They do the same thing, and modern compilers usually produce identical machine code for both:</p>
+
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            int a[5] = {4, 8, 15, 16, 23};
+            int n = 5;
+
+            // Index style: easy to read, and you know the position
+            int total = 0;
+            for (int i = 0; i < n; i++) {
+                total += a[i];
+            }
+            printf("index style:   %d\n", total);
+
+            // Pointer style: p starts at the first element and stops at one-past-the-end
+            total = 0;
+            for (const int *p = a; p < a + n; p++) {
+                total += *p;
+            }
+            printf("pointer style: %d\n", total);
+            return 0;
+        }
+    </script>
+    <p>In the pointer style, <code>a + n</code> is the address <em>one past the last element</em>. C specifically allows you to compute and compare against that address, as long as you never dereference it. Going any further than one-past-the-end (or before the start) is undefined behaviour, even if you don't dereference.</p>
+    <p>Which should you use? Index style is clearer in most code, and it's what you should reach for by default. Pointer style shines when the "position" is naturally a pointer: walking a string until <code>'\0'</code>, scanning a buffer, or keeping two pointers that move towards each other.</p>
+
+    <h2>Strings: <code>char[]</code> vs <code>char *</code></h2>
+    <p>A string is a <code>char</code> array ending in <code>'\0'</code>, so everything above applies to strings. But there's one distinction that bites everyone eventually. These two lines look almost identical:</p>
+    <script type="text/c" data-static>
+        char  greeting[] = "hello";   // an array of 6 chars, initialised with a COPY of the text
+        char *literal    = "hello";   // a pointer to a string literal stored elsewhere
+    </script>
+    <ul>
+        <li><code>greeting</code> is your own array (6 bytes including <code>'\0'</code>). You can change its characters freely. <code>sizeof greeting</code> is 6.</li>
+        <li><code>literal</code> is a pointer (<code>sizeof literal</code> is 8) to a <strong>string literal</strong>, which the compiler typically stores in read-only memory and may share between identical literals. You can read it, and you can point <code>literal</code> somewhere else, but you must not modify the characters.</li>
+    </ul>
+
+    <script type="text/c">
+        #include <stdio.h>
+
+        int main(void) {
+            char greeting[] = "hello";
+            const char *literal = "hello";
+
+            greeting[0] = 'j';            // fine: it's our own array
+            printf("%s\n", greeting);     // jello
+
+            literal = "goodbye";          // fine: just re-pointing the pointer
+            printf("%s\n", literal);
+
+            // walk a string with a pointer until the terminator
+            int vowels = 0;
+            for (const char *p = greeting; *p != '\0'; p++) {
+                if (*p == 'a' || *p == 'e' || *p == 'i' || *p == 'o' || *p == 'u') {
+                    vowels++;
+                }
+            }
+            printf("vowels in %s: %d\n", greeting, vowels);
+            return 0;
+        }
+    </script>
+
+    <div class="callout danger">
+        <span class="callout-title">Modifying a string literal is undefined behaviour</span>
+        <p>This compiles, often without a warning, and then typically crashes with a segmentation fault:</p>
+        <script type="text/c" data-static>
+            char *s = "hello";
+            s[0] = 'j';   // UB: writing to a string literal
+        </script>
+        <p>For historical reasons string literals have type <code>char[]</code> rather than <code>const char[]</code> in C, so the compiler won't stop you. Protect yourself: whenever a pointer refers to a literal, declare it <code>const char *</code>. Then <code>s[0] = 'j'</code> becomes a compile error. If you need to modify the text, use an array: <code>char s[] = "hello";</code>.</p>
+    </div>
+
+    <h2>Exercises</h2>
+
+    <div class="exercise" data-id="pa-sum-pointer">
+        <h3>Sum with a walking pointer</h3>
+        <p>Finish <code>sum</code> so it returns the total of the <code>n</code> ints starting at <code>a</code>. Don't use square brackets: use a pointer that walks from <code>a</code> up to (but not including) <code>a + n</code>.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            int sum(const int *a, int n) {
+                int total = 0;
+                // TODO: loop with a pointer p from a to a + n, adding *p
+
+                return total;
+            }
+
+            int main(void) {
+                int data[] = {3, 9, 27, 81};
+                int n = sizeof data / sizeof data[0];
+                printf("%d\n", sum(data, n));
+                printf("%d\n", sum(data + 1, 2));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            120
+            36
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            int sum(const int *a, int n) {
+                int total = 0;
+                for (const int *p = a; p < a + n; p++) {
+                    total += *p;
+                }
+                return total;
+            }
+
+            int main(void) {
+                int data[] = {3, 9, 27, 81};
+                int n = sizeof data / sizeof data[0];
+                printf("%d\n", sum(data, n));
+                printf("%d\n", sum(data + 1, 2));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p><code>for (const int *p = a; p &lt; a + n; p++) { total += *p; }</code>. The second call passes <code>data + 1</code>, a pointer to the <code>9</code>, with length 2, so it sums <code>9 + 27</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="pa-reverse-in-place">
+        <h3>Reverse in place with two pointers</h3>
+        <p>Write <code>reverse</code> so it reverses the array in place. Use two pointers: <code>left</code> starting at the first element and <code>right</code> at the last. Swap what they point to, move them towards each other, and stop when they meet.</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            void reverse(int *a, int n) {
+                // TODO
+            }
+
+            int main(void) {
+                int a[] = {1, 2, 3, 4, 5, 6, 7};
+                int n = sizeof a / sizeof a[0];
+                reverse(a, n);
+                for (int i = 0; i < n; i++) {
+                    printf("%d ", a[i]);
+                }
+                printf("\n");
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            7 6 5 4 3 2 1
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            void reverse(int *a, int n) {
+                int *left = a;
+                int *right = a + n - 1;
+                while (left < right) {
+                    int tmp = *left;
+                    *left = *right;
+                    *right = tmp;
+                    left++;
+                    right--;
+                }
+            }
+
+            int main(void) {
+                int a[] = {1, 2, 3, 4, 5, 6, 7};
+                int n = sizeof a / sizeof a[0];
+                reverse(a, n);
+                for (int i = 0; i < n; i++) {
+                    printf("%d ", a[i]);
+                }
+                printf("\n");
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>The last element is at <code>a + n - 1</code>. Loop <code>while (left &lt; right)</code>; inside, swap <code>*left</code> and <code>*right</code> using a temporary <code>int</code>, then <code>left++</code> and <code>right--</code>.</p></details>
+    </div>
+
+    <div class="exercise" data-id="pa-my-strlen">
+        <h3>Your own <code>strlen</code></h3>
+        <p>Implement <code>my_strlen</code>, which returns the number of characters before the <code>'\0'</code>. Walk a pointer <code>p</code> forward until <code>*p</code> is the terminator, then return how far it moved. (Hint from Pointer Arithmetic: subtracting two pointers into the same array gives the number of elements between them.)</p>
+        <script type="text/c" class="starter">
+            #include <stdio.h>
+
+            size_t my_strlen(const char *s) {
+                // TODO
+                return 0;
+            }
+
+            int main(void) {
+                char word[] = "pointer";
+                const char *empty = "";
+                printf("%zu\n", my_strlen(word));
+                printf("%zu\n", my_strlen(empty));
+                printf("%zu\n", my_strlen("arrays and strings"));
+                return 0;
+            }
+        </script>
+        <script type="text/plain" class="expected">
+            7
+            0
+            18
+        </script>
+        <script type="text/c" class="solution">
+            #include <stdio.h>
+
+            size_t my_strlen(const char *s) {
+                const char *p = s;
+                while (*p != '\0') {
+                    p++;
+                }
+                return (size_t)(p - s);
+            }
+
+            int main(void) {
+                char word[] = "pointer";
+                const char *empty = "";
+                printf("%zu\n", my_strlen(word));
+                printf("%zu\n", my_strlen(empty));
+                printf("%zu\n", my_strlen("arrays and strings"));
+                return 0;
+            }
+        </script>
+        <details class="hint"><summary>Hint</summary><p>Start with <code>const char *p = s;</code>, advance with <code>while (*p != '\0') p++;</code>, then <code>return p - s;</code> (cast to <code>size_t</code> to be tidy). For the empty string, the loop never runs and the result is 0.</p></details>
+    </div>
+
+    <script type="application/json" class="quiz">
+    [
+      { "q": "Given <code>int a[5];</code>, what does <code>a</code> evaluate to in an expression like <code>int *p = a;</code>?",
+        "choices": ["A copy of all five elements", "The value of <code>a[0]</code>", "A pointer to <code>a[0]</code>", "A pointer to <code>p</code>"],
+        "answer": 2, "explain": "The array decays to a pointer to its first element, so <code>a</code> here means <code>&amp;a[0]</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int a[] = {10, 20, 30, 40};\nint *p = a + 1;\nprintf(\"%d %d\", *(a + 2), p[2]);",
+        "answer": "30 40", "explain": "<code>*(a + 2)</code> is <code>a[2]</code>, which is 30. <code>p</code> points at <code>a[1]</code>, so <code>p[2]</code> is <code>*(p + 2)</code>, which is <code>a[3]</code>, 40." },
+      { "q": "Inside <code>void f(int a[]) { ... }</code>, what is <code>sizeof a</code> on a typical 64-bit system?",
+        "choices": ["The size of a pointer, usually 8", "The size of the caller's whole array", "<code>sizeof(int)</code>, usually 4", "It's a compile error"],
+        "answer": 0, "explain": "An array parameter is really a pointer parameter (<code>int *a</code>), so <code>sizeof</code> gives the pointer's size. That's why you pass the length separately." },
+      { "q": "What does this print?", "type": "output",
+        "code": "char s[] = \"cat\";\nchar *p = s;\np[0] = 'b';\nprintf(\"%s %zu\", s, sizeof s);",
+        "answer": "bat 4", "explain": "<code>p</code> points into <code>s</code>, so writing <code>p[0]</code> changes <code>s</code>. <code>s</code> is a real array of 4 chars: 'c', 'a', 't' and the <code>'\\0'</code>." },
+      { "q": "Which of these is <strong>not</strong> allowed, given <code>int a[3], b[3]; int *p = a;</code>?",
+        "choices": ["<code>p = b;</code>", "<code>p++;</code>", "<code>*(a + 1) = 5;</code>", "<code>a = b;</code>"],
+        "answer": 3, "explain": "You can't assign to an array. <code>p</code> is a pointer variable and can be re-pointed; <code>*(a + 1) = 5</code> is just <code>a[1] = 5</code>." },
+      { "q": "What does this print?", "type": "output",
+        "code": "int a[] = {5, 6, 7, 8};\nint *end = a + 4;\nint count = 0;\nfor (int *p = a; p < end; p += 2) {\n    count += *p;\n}\nprintf(\"%d\", count);",
+        "answer": "12", "explain": "The pointer visits <code>a[0]</code> (5) and <code>a[2]</code> (7), then <code>p</code> becomes <code>a + 4</code>, which equals <code>end</code>, so the loop stops. 5 + 7 = 12." },
+      { "q": "Why is <code>char *s = \"hi\"; s[0] = 'H';</code> a bug?",
+        "choices": ["<code>s</code> is too short to hold <code>'H'</code>", "String literals must not be modified; doing so is undefined behaviour", "You can't use <code>[]</code> on a pointer", "It isn't a bug"],
+        "answer": 1, "explain": "<code>s</code> points at a string literal, which is typically in read-only memory. Writing to it is UB and usually crashes. Use <code>char s[] = \"hi\";</code> to get a modifiable copy, and <code>const char *</code> for pointers to literals." }
+    ]
+    </script>
+</main>
+<script src="assets/course.js"></script>
 </body>
 </html>
